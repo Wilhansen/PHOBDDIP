@@ -52,14 +52,13 @@ message Pong {
 
 message LocationUpdate {
 	google.protobuf.Timestamp ts = 1;
-	uint32 message_id = 2;
-	float longitude = 3;
-	float latitude = 4;
-	float bearing = 5;
-	float speed = 6;
-	int32 current_load = 7; //negative number if unavailable
-	VesselStatus status = 8;
-	uint32 current_trip_id = 9;
+	float longitude = 2;
+	float latitude = 3;
+	float bearing = 4;
+	float speed = 5;
+	int32 current_load = 6; //negative number if unavailable
+	VesselStatus status = 7;
+	uint32 current_trip_id = 8;
 }
 
 message ChangeSettingsResponse {

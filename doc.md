@@ -6,11 +6,16 @@ Author: Wilhansen Li
 
 ## General principles
 
-1. Limit everything to 1 MTU (576 bytes)
-2. Utilize binary formats, [protobuf3](https://developers.google.com/protocol-buffers/docs/proto3) in particular
-3. Utilize [libsodium](https://download.libsodium.org) library for cryptography
-4. Use UDP
-5. Network byte order is used for non-protobuf entries
+1. Minimize data consumption.
+2. Keep security in mind.
+3. Make data formats clear.
+
+##
+1. Limit everything to 1 MTU (576 bytes).
+2. Utilize binary formats, [protobuf3](https://developers.google.com/protocol-buffers/docs/proto3) in particular.
+3. Utilize [libsodium](https://download.libsodium.org) library for cryptography.
+4. Use UDP for high frequency data, HTTP for file transfers.
+5. Network byte order is used for non-protobuf entries.
 
 ### Key Exchange Algorithm
 
@@ -64,7 +69,7 @@ var try_count = 0;
 send(destination: target, message: msg);
 
 while( try_count < 10 ) {
-	let response = recieve(from: target, withIID: msg.id, timeout: timeouts[try_count]);
+	let response = recieve(from: target, withID: msg.id, timeout: timeouts[try_count]);
 	if (response.status == ERROR_TIMEOUT) {
 		try_count++;
 	} else {
@@ -169,14 +174,13 @@ message Pong {
 ```protobuf
 message LocationUpdate {
 	Timestamp ts = 1;
-	uint32 message_id = 2;
-	float longitude = 3;
-	float latitude = 4;
-	float bearing = 5;
-	float speed = 6;
-	int32 current_load = 7; //negative number if unavailable
-	VesselStatus status = 8;
-	uint32 current_trip_id = 9;
+	float longitude = 2;
+	float latitude = 3;
+	float bearing = 4;
+	float speed = 5;
+	int32 current_load = 6; //negative number if unavailable
+	VesselStatus status = 7;
+	uint32 current_trip_id = 8;
 }
 ```
 
