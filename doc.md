@@ -49,7 +49,7 @@ Message payload between client and server is in protobuf3 binary format wrapped 
 ## Messages
 Numbers in square brackets are the message type IDs.
 
-Messages with an asterisk (`*`) have to be sent reliably; they have "response" counterparts. These have a `message_id` field for tracking and response messages should use the same `message_id` as the original message it is responding to.
+Messages listed below with an asterisk (`*`) have to be sent reliably; they have "response" counterparts. These have a `message_id` field for tracking and response messages should use the same `message_id` as the original message it is responding to.
 
 The value of the `message_id` does not matter as long as it is unique for all reliable message within a day. One way to implement the distribution of `message_id` is to keep a global message_id counter which increments everytime a message is constructed (i.e. `current_message.message_id = message_id_counter++`).
 
