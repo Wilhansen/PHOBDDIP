@@ -7,14 +7,14 @@ Author: Wilhansen Li
 ## General principles
 
 1. Limit everything to 1 MTU (576 bytes)
-2. Utilize binary formats (protobuf)
-3. Utilize libsodium library for cryptography
+2. Utilize binary formats, [protobuf3](https://developers.google.com/protocol-buffers/docs/proto3) in particular
+3. Utilize [libsodium](https://download.libsodium.org) library for cryptography
 4. Use UDP
 5. Network byte order is used for non-protobuf entries
 
 ### Key Exchange Algorithm
 
-1. The server has a private-public key pair, the server's public key is available to all clients.
+1. The server has a private-public key pair, the server's public key is available to everyone.
 2. Upon registration, the client should generate a private-public key pair (using `crypto_kx_keypair`) and give the public key to the server.
 3. Session keys are generated upon startup of the client/server and uses symmetric encryption for performance (use `crypto_kx_client_session_keys` in libsodium 1.0.12+).
 
