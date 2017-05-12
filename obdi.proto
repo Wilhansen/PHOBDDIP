@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+enum Severity {
+	DEBUG = 0;
+	INFO = 1;
+	WARNING = 2;
+	SYSTEM_ERROR = 3;
+	MECHANICAL_FAILURE = 4;
+	ACCIDENT = 5;
+	ENVIRONMENT = 6;
+}
+
+enum VesselStatus {
+	TRANSIT = 0;
+	LOADING = 1;
+	SERVICING = 2;
+	EMERGENCY = 3;
+}
+
+message Setting {
+	string name = 1;
+	string value = 2;
+}
+
+message Notice {
+	uint32 message_id = 1;
+	google.protobuf.Timestamp time_generated = 2;
+	Severity severity = 3;
+	string details = 4;
+}
+
+message NoticeResponse {
+	uint32 message_id = 1;
+	google.protobuf.Timestamp notice_recieve_time = 2;
+}
+
+message Ping {
+	uint32 message_id = 1;
+	uint32 try_count = 2;
+	google.protobuf.Timestamp original_time_generated = 3;
+	google.protobuf.Timestamp current_time_generated = 4;
+}
+
+message Pong {
+	uint32 message_id = 1; //should be identical to the Ping message it's responding to
+	uint32 ping_try_count = 2;
+	google.protobuf.Timestamp time_generated = 3;
+}
+
+message LocationUpdate {
+	google.protobuf.Timestamp ts = 1;
+	uint32 message_id = 2;
+	float longitude = 3;
+	float latitude = 4;
+	float bearing = 5;
+	float speed = 6;
+	int32 current_load = 7; //negative number if unavailable
+	VesselStatus status = 8;
+	uint32 current_trip_id = 9;
+}
+
+message ChangeSettingsResponse {
+	uint32 message_id = 1; //refers to the message_id used in "ChangeSettings"
+}
+
+message TripUpdateStatus {
+	enum Status {
+		IN_PROGRESS = 0;
+		DONE = 1;
+		ERROR = 2;
+	}
+	uint32 update_id = 1;
+	Status status = 2;
+}
+
+message ChangeSettings {
+	uint32 message_id = 1;
+	repeated Setting settings = 2;
+}
+
+message Error {
+	enum Reason {
+		PAYLOAD_SIZE_MISMATCH = 0;
+		PAYLOAD_CANNOT_DECRYPT = 1;
+		PAYLOAD_PARSE_FAIL = 2;
+		INVALID_MESSAGE_TYPE = 3;
+		INVALID_SETTING_VALUES = 4;
+	}
+	Reason code = 1;
+	uint32 message_id = 2; //the message id this error refers to
+	string details = 3;
+}
+
+message ETAUpdate {
+	google.protobuf.Timestamp server_timestamp = 1;
+	google.protobuf.Duration time_remaining = 2;
+	double meters_left = 3;
+	float percentage_completed = 4;
+}
+
+message TripInfoUpdate {
+	uint32 update_id = 1;
+	google.protobuf.Timestamp request_date = 2;
+	string url = 3;
+}
