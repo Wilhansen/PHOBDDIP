@@ -1,5 +1,5 @@
 # OBD Data Interchange Protocol
-Updated: 2017.05.12
+Updated: 2017.05.14
 
 Author: Wilhansen Li
 <!--TOC-->
@@ -145,15 +145,14 @@ message NoticeResponse {
 }
 ```
 
-#### [`2`] Ping*
+#### [`2`] Ping
 Response message: Pong
 
+Note that although this uses a message ID, this is not re-sent in case of failure.
 ```protobuf
 message Ping {
 	uint32 message_id = 1;
-	uint32 try_count = 2;
-	Timestamp original_time_generated = 3;
-	Timestamp current_time_generated = 4;
+	Timestamp time_generated = 2;
 }
 ```
 
@@ -163,8 +162,7 @@ Response to: Ping
 ```protobuf
 message Pong {
 	uint32 message_id = 1; //should be identical to the Ping message it's responding to
-	uint32 ping_try_count = 2;
-	Timestamp time_generated = 3;
+	Timestamp time_generated = 2;
 }
 ```
 
