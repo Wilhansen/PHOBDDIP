@@ -39,15 +39,12 @@ message NoticeResponse {
 
 message Ping {
 	uint32 message_id = 1;
-	uint32 try_count = 2;
-	google.protobuf.Timestamp original_time_generated = 3;
-	google.protobuf.Timestamp current_time_generated = 4;
+	google.protobuf.Timestamp time_generated = 2;
 }
 
 message Pong {
 	uint32 message_id = 1; //should be identical to the Ping message it's responding to
-	uint32 ping_try_count = 2;
-	google.protobuf.Timestamp time_generated = 3;
+	google.protobuf.Timestamp time_generated = 2;
 }
 
 message LocationUpdate {
