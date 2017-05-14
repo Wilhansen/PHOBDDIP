@@ -3,6 +3,8 @@ syntax = "proto3";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 
+package obdi;
+
 enum Severity {
 	DEBUG = 0;
 	INFO = 1;
@@ -34,7 +36,7 @@ message Notice {
 
 message NoticeResponse {
 	uint32 message_id = 1;
-	google.protobuf.Timestamp notice_recieve_time = 2;
+	google.protobuf.Timestamp notice_receive_time = 2;
 }
 
 message Ping {
@@ -45,6 +47,10 @@ message Ping {
 message Pong {
 	uint32 message_id = 1; //should be identical to the Ping message it's responding to
 	google.protobuf.Timestamp time_generated = 2;
+}
+
+message CryptoError {
+	string details = 1;	
 }
 
 message LocationUpdate {
@@ -62,7 +68,7 @@ message ChangeSettingsResponse {
 	uint32 message_id = 1; //refers to the message_id used in "ChangeSettings"
 }
 
-message TripUpdateStatus {
+message TripInfoUpdateStatus {
 	enum Status {
 		IN_PROGRESS = 0;
 		DONE = 1;

@@ -1,5 +1,5 @@
 # OBD Data Interchange Protocol
-Updated: 2017.05.14
+Updated: 2017.05.15
 
 Author: Wilhansen Li
 <!--TOC-->
@@ -15,7 +15,7 @@ Author: Wilhansen Li
 2. Utilize binary formats, [protobuf3](https://developers.google.com/protocol-buffers/docs/proto3) in particular.
 3. Utilize [libsodium](https://download.libsodium.org) library for cryptography.
 4. Use UDP for high frequency data, HTTP for file transfers.
-5. Network byte order is used for non-protobuf entries.
+5. Byte order for non-protobuf entries is Little Endian.
 
 ### Key Exchange Algorithm
 
@@ -27,10 +27,16 @@ Author: Wilhansen Li
 
 Message payload between client and server is in protobuf3 binary format wrapped uses the following format (each pair of square brackets describe a block of data in `[datatype name]` format).
 
+### Payload Header
+The `payload_header` is as follows:
+```
+[uint16 payload_size][24-byte nonce][16-byte mac][24-byte reserve]
+```
+
 ### Client to Server
 
 ```
-[c(OBDI) marker][uint8 version][uint64 vessel_id][uint8 message_type][uint16 payload_size][bytes payload]
+[c(OBDI) marker][uint8 version][uint64 vessel_id][uint8 message_type][payload_header][bytes payload]
 ```
 
 * `marker` — Always set to the string "OBDI".
@@ -40,9 +46,9 @@ Message payload between client and server is in protobuf3 binary format wrapped 
 * `payload_size` — size of the payload data, in bytes. When parsing, make sure that this is less than the total packet size - 16.
 * `payload` — Protobuf3 payload data encrypted using the client's transmission key from the Key Exchange Algorithm with the `crypto_secretbox_*` method in libsodium.
 
-### Server to client
+### Server to Client
 ```
-[c(OBDI) marker][uint8 version][uint8 message_type][uint16 payload_size][bytes payload]
+[c(OBDI) marker][uint8 version][uint8 message_type][payload_header][bytes payload]
 ```
 
 * `marker` — Always set to the string "OBDI".
@@ -141,7 +147,7 @@ Response to: Notice
 ```protobuf
 message NoticeResponse {
 	uint32 message_id = 1;
-	Timestamp notice_recieve_time = 2;
+	Timestamp notice_receive_time = 2;
 }
 ```
 
@@ -166,9 +172,18 @@ message Pong {
 }
 ```
 
+### Unencrypted Messages
+These messages have payloads that are unencrypted but signed. The nonce, mac, and reserved entries in the payload header form the message signature.
+
+#### [`10`] Crypto Error
+```protobuf
+message CryptoError {
+	string details = 1;	
+}
+```
 
 ### Client Messages
-#### [`10`] Location Update
+#### [`20`] Location Update
 ```protobuf
 message LocationUpdate {
 	Timestamp ts = 1;
@@ -182,7 +197,7 @@ message LocationUpdate {
 }
 ```
 
-#### [`11`] Change Settings Response
+#### [`21`] Change Settings Response
 Response to: Change Settings
 
 ```protobuf
@@ -191,7 +206,7 @@ message ChangeSettingsResponse {
 }
 ```
 
-#### [`12`] Trip Info Update Status
+#### [`22`] Trip Info Update Status
 Response to: Trip Info Update
 
 Sent:
@@ -200,7 +215,7 @@ Sent:
 3. When the Trip Update is done.
 
 ```protobuf
-message TripUpdateStatus {
+message TripInfoUpdateStatus {
 	enum Status {
 		IN_PROGRESS = 0;
 		DONE = 1;
