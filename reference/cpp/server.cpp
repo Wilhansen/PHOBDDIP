@@ -33,7 +33,7 @@ std::unique_ptr<ServerCrypto> server_crypto;
 int main_socket;
 const uint8_t marker_data[4] = OBDI_MARKER_DATA;
 
-void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address, const socklen_t address_length, const uint8_t message_type, const void *payload, const size_t payload_size);
+void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address, const socklen_t address_length, const MessageType message_type, const void *payload, const size_t payload_size);
 
 template<typename M>
 vector<uint8_t> prepare_message(const M& m, const MessageType message_type, const uint64_t vessel_id) {
@@ -182,7 +182,7 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
-void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address, const socklen_t address_length, const uint8_t message_type, const void *payload, const size_t payload_size) {
+void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address, const socklen_t address_length, const MessageType message_type, const void *payload, const size_t payload_size) {
 #define PARSE_MESSAGE(Type, ident) \
 	Type ident;\
 	if ( !ident.ParseFromArray(payload, payload_size) ) { \
@@ -200,7 +200,7 @@ void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address,
 		case MessageType::NOTICE: {
 			PARSE_MESSAGE(obdi::Notice, notice);
 
-			cout << "Received from " << vessel_id << ": " << notice.DebugString();
+			cout << "Received from " << vessel_id << ": " << notice.DebugString() << endl;
 
 			obdi::NoticeResponse response;
 			response.set_message_id(notice.message_id());
@@ -214,12 +214,12 @@ void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address,
 		}
 		case MessageType::NOTICE_RESPONSE: {
 			PARSE_MESSAGE(obdi::NoticeResponse, notice_response);
-			cout << "Received from " << vessel_id << ": " << notice_response.DebugString();
+			cout << "Received from " << vessel_id << ": " << notice_response.DebugString() << endl;
 			break;
 		}
 		case MessageType::PING: {
 			PARSE_MESSAGE(obdi::Ping, ping);
-			cout << "Received from " << vessel_id << ": " << ping.DebugString();
+			cout << "Received from " << vessel_id << ": " << ping.DebugString() << endl;
 
 			obdi::Pong pong;
 			pong.set_message_id(ping.message_id());
@@ -233,28 +233,29 @@ void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address,
 		}
 		case MessageType::PONG: {
 			PARSE_MESSAGE(obdi::Pong, pong);
-			cout << "Received from " << vessel_id << ": " << pong.DebugString();
+			cout << "Received from " << vessel_id << ": " << pong.DebugString() << endl;
 			break;
 		}
 		case MessageType::LOCATION_UPDATE: {
 			PARSE_MESSAGE(obdi::LocationUpdate, location_update);
-			cout << "Received from " << vessel_id << ": " << location_update.DebugString();
+			cout << "Received from " << vessel_id << ": " << location_update.DebugString() << endl;
 			break;
 		}
 		case MessageType::CHANGE_SETTINGS_RESPONSE: {
 			PARSE_MESSAGE(obdi::ChangeSettingsResponse, change_settings_response);
-			cout << "Received from " << vessel_id << ": " << change_settings_response.DebugString();
+			cout << "Received from " << vessel_id << ": " << change_settings_response.DebugString() << endl;
 			break;
 		}
 		case MessageType::TRIP_INFO_UPDATE_STATUS: {
 			PARSE_MESSAGE(obdi::TripInfoUpdateStatus, trip_info_update_status);
-			cout << "Received from " << vessel_id << ": " << trip_info_update_status.DebugString();
+			cout << "Received from " << vessel_id << ": " << trip_info_update_status.DebugString() << endl;
 			break;
 		}
 		case MessageType::CHANGE_SETTINGS:
-		case MessageType::ERROR_RESPONSE:
+		case MessageType::ERROR:
 		case MessageType::ETA_UPDATE:
-			cout << "Got server message (id: " << message_type << ") from " << vessel_id << endl;
+		case MessageType::TRIP_INFO_UPDATE:
+			cout << "Got server message (id: " << (int)message_type << ") from " << vessel_id << endl;
 			break;
 		default: {
 			cerr << "[WARNING] Unknown message type: " << (uint16_t)message_type << endl;

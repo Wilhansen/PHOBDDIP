@@ -24,7 +24,7 @@ SecureMemory::~SecureMemory() {
 KeyPair KeyPair::generate() {
 	KeyPair kp = {SecureMemory(crypto_sign_ed25519_PUBLICKEYBYTES), SecureMemory(crypto_sign_ed25519_SECRETKEYBYTES)};
 
-	crypto_sign_ed25519_keypair(kp.public_key.data(), kp.secret_key.data());
+	crypto_sign_keypair(kp.public_key.data(), kp.secret_key.data());
 	return kp;
 }
 
@@ -64,17 +64,16 @@ ServerCrypto::ServerCrypto(const char *keydir) : m_keydir(keydir), server_sk(cry
 }
 
 namespace {
-	string to_hex(const uint64_t vessel_id) {
-		ostringstream oss;
-		oss.setf(ios_base::hex, ios_base::basefield);
-		oss << vessel_id;
-		return oss.str();
+	string client_keyfile(const uint64_t client_id) {
+		char buffer[64] = { 0 };
+		sprintf(buffer, "%16llX.pub", client_id);
+		return string(buffer);
 	}
 }
 
 //-----------------ServerCrypto-------------------
 ServerCrypto::Result ServerCrypto::load_keys(const uint64_t client_id, SessionKeyPair &dst) {
-	const auto client_keypath = m_keydir + to_hex(client_id) + ".pub";
+	const auto client_keypath = m_keydir + client_keyfile(client_id);
 	const auto client_sign_pk = readfile(client_keypath.c_str());
 	if ( client_sign_pk.empty() ) {
 		return KEY_NOT_FOUND;
@@ -129,14 +128,15 @@ ServerCrypto::Result ServerCrypto::encrypt_payload(const uint64_t client_id, Pay
 }
 
 void ServerCrypto::sign_payload(const void *payload, PayloadHeader &header) {
-	crypto_sign_detached(header.nonce, NULL,(const uint8_t*)payload, header.payload_size, sign_sk.data());
+	crypto_sign_detached(header.signature, NULL,(const uint8_t*)payload, header.payload_size, sign_sk.data());
 }
 
 
 //-----------------ClientCrypto-------------------
 
-ClientCrypto::ClientCrypto(const uint64_t client_id, const char *pk_path, const char *sk_path, const char *server_key_path) : client_id(client_id), client_rx(crypto_kx_SESSIONKEYBYTES), client_tx(crypto_kx_SESSIONKEYBYTES), sign_sk(crypto_sign_ed25519_SECRETKEYBYTES) {
-	const auto &server_sign_pk = readfile(server_key_path);
+ClientCrypto::ClientCrypto(const uint64_t client_id, const char *pk_path, const char *sk_path, const char *server_key_path) :
+client_id(client_id), client_rx(crypto_kx_SESSIONKEYBYTES), client_tx(crypto_kx_SESSIONKEYBYTES), sign_sk(crypto_sign_ed25519_SECRETKEYBYTES) {
+	server_sign_pk = readfile(server_key_path);
 	sign_pk = readfile(pk_path);
 
 	if ( FILE *fp = fopen(sk_path, "rb") ) {
@@ -186,6 +186,9 @@ ClientCrypto::Result ClientCrypto::encrypt_payload(PayloadHeader &payload_header
 }
 
 void ClientCrypto::sign_payload(const void *payload, PayloadHeader &header) {
-	crypto_sign_detached(header.nonce, NULL,(const uint8_t*)payload, header.payload_size, sign_sk.data());
+	crypto_sign_detached(header.signature, NULL,(const uint8_t*)payload, header.payload_size, sign_sk.data());
 }
 
+bool ClientCrypto::verify_signed_server_payload(const void *payload, const PayloadHeader &header) {
+	return crypto_sign_verify_detached(header.signature, (const uint8_t*)payload, header.payload_size, server_sign_pk.data()) == 0;
+}

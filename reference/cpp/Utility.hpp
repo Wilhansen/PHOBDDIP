@@ -97,8 +97,8 @@ public:
 		INVALID_PAYLOAD
 	};
 private:
-	std::vector<uint8_t> client_rx, sign_pk, server_pk;
-	SecureMemory client_tx, sign_sk;
+	std::vector<uint8_t> sign_pk, server_sign_pk;
+	SecureMemory client_rx, client_tx, sign_sk;
 	const uint64_t client_id;
 	
 public:
@@ -106,6 +106,7 @@ public:
 	Result decrypt_payload(const PayloadHeader &payload_header, void *payload);
 	Result encrypt_payload(PayloadHeader &payload_header, const void *payload, void *destination);
 	void sign_payload(const void *payload, PayloadHeader &header);
+	bool verify_signed_server_payload(const void *payload, const PayloadHeader &header);
 };
 
 #endif

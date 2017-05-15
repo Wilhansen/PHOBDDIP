@@ -5,8 +5,9 @@
 #define NONCE_SIZE 24 //crypto_secretbox_NONCEBYTES
 #define MAC_SIZE 16 //crypto_secretbox_MACBYTES
 #define RESERVE_SIZE 24
+#define SIGNATURE_SIZE 64
 
-enum MessageType : uint8_t {
+enum class MessageType : uint8_t {
 	NOTICE = 0,
 	NOTICE_RESPONSE = 1,
 	PING = 2,
@@ -19,16 +20,22 @@ enum MessageType : uint8_t {
 	TRIP_INFO_UPDATE_STATUS = 22,
 
 	CHANGE_SETTINGS = 50,
-	ERROR_RESPONSE = 51,
+	ERROR = 51,
 	ETA_UPDATE = 52,
 	TRIP_INFO_UPDATE = 53
 };
 
+#pragma pack(push, 1)
 struct PayloadHeader {
 	uint16_t payload_size;
-	uint8_t nonce[NONCE_SIZE];
-	uint8_t mac[MAC_SIZE];
-	uint8_t reserved[RESERVE_SIZE];
+	union {
+		struct {
+			uint8_t nonce[NONCE_SIZE];
+			uint8_t mac[MAC_SIZE];
+			uint8_t reserved[RESERVE_SIZE];
+		};
+		uint8_t signature[SIGNATURE_SIZE];
+	};
 };
 
 struct ClientMessageHeader {
@@ -45,6 +52,7 @@ struct ServerMessageHeader {
 	MessageType message_type;
 	PayloadHeader payload_header;
 };
+#pragma pack(pop)
 
 #define OBDI_MARKER_DATA {'O','B','D','I'}
 #define OBDI_VERSION 0
