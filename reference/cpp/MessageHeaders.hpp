@@ -40,8 +40,9 @@ struct PayloadHeader {
 struct ClientMessageHeader {
 	uint8_t marker[4];
 	uint8_t version;
-	uint64_t vessel_id;
 	MessageType message_type;
+	uint32_t server_id;
+	uint64_t vessel_id;
 	PayloadHeader payload_header;
 };
 
@@ -49,6 +50,7 @@ struct ServerMessageHeader {
 	uint8_t marker[4];
 	uint8_t version;
 	MessageType message_type;
+	uint32_t server_id;
 	PayloadHeader payload_header;
 };
 #pragma pack(pop)

@@ -41,14 +41,16 @@ All messages from client to server are prepended with the following header:
 struct ClientMessageHeader {
 	uint8_t marker[4];
 	uint8_t version;
-	uint64_t vessel_id;
 	MessageType message_type;
+	uint32_t server_id;
+	uint64_t vessel_id;
 	PayloadHeader payload_header;
 };
 ```
 
 * `marker` — Always set to the string "OBDI".
 * `version` — currently at 0.
+* `server_id` — 4-byte ID of the server.
 * `vessel_id` — 8-byte ID of the vessel.
 * `message_type` — Message type ID, see "Messages" for the list of possible messages.
 
@@ -59,6 +61,7 @@ struct ServerMessageHeader {
 	uint8_t marker[4];
 	uint8_t version;
 	MessageType message_type;
+	uint32_t server_id;
 	PayloadHeader payload_header;
 };
 ```
@@ -66,6 +69,7 @@ struct ServerMessageHeader {
 * `marker` — Always set to the string "OBDI".
 * `version` — currently at 0.
 * `message_type` — Message type ID, see "Messages" for the list of possible messages. Server responses start with 50 onwards.
+* `server_id` — 4-byte ID of the server.
 
 ### Payload Header
 The `payload_header` is as follows:
@@ -83,10 +87,10 @@ struct PayloadHeader {
 };
 ```
 
-* `payload_size` — size of the payload data, in bytes. When parsing, make sure that this is less than the `total_packet_size - `total_header_size`.
+* `payload_size` — size of the payload data, in bytes. When parsing, make sure that this is less than  `total_packet_size - `total_header_size`.
 * `nonce` — Nonce used for encryption/decryption, when generating messages, fill this with random data.
 * `mac` — MAC used to verify whether the decrypted data is correct.
-* `signature` — Used if the payload is unencrypted. This contains the signature of the message that can be verified using the originator's public signing key.
+* `signature` — Used if the payload is unencrypted. This contains the signature of the message that can be verified using the originator's public signing key (use `crypto_sign_*` functions).
 
 ## Messages
 Numbers in square brackets are the message type IDs.
@@ -221,7 +225,8 @@ message CryptoError {
 #### [`11`] Modify Server Keys*
 Response message: Ack
 
-Sent by the master server instructing clients to modify their server key database. Unlike other 
+Sent by the master server instructing clients to modify their server key database. Unlike other messages, this is not signed by the server key, but by the special master key.
+
 ```protobuf
 message ModifyServerKeys {
 	enum Operation {
@@ -237,6 +242,8 @@ message ModifyServerKeys {
 }
 ```
 
+* `time_issued` — time the server key modification happened. This is NOT when the packet is sent. This field should be used to order the modification events.
+* `server_id` — server of the key to modify.
 
 ### Client Messages
 #### [`20`] Location Update
@@ -247,11 +254,13 @@ message LocationUpdate {
 	float latitude = 3;
 	float bearing = 4;
 	float speed = 5;
-	int32 current_load = 6; //negative number if unavailable
+	int32 current_load = 6;
 	VesselStatus status = 7;
 	uint32 current_trip_id = 8;
 }
 ```
+* `current_load` — current number of passengers if applicable. Use `-1` if the value is unavailable.
+* `current_trip_id` — ID of the trip the vessel is currently in. Use `0` if the trip in unknown or unavailable.
 
 #### [`21`] Trip Info Update Status
 Response to: Trip Info Update
