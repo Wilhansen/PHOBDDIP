@@ -44,8 +44,8 @@ message Ping {
 	google.protobuf.Timestamp time_generated = 2;
 }
 
-message Pong {
-	uint32 message_id = 1; //should be identical to the Ping message it's responding to
+message Ack {
+	uint32 message_id = 1;
 	google.protobuf.Timestamp time_generated = 2;
 }
 
@@ -62,10 +62,6 @@ message LocationUpdate {
 	int32 current_load = 6; //negative number if unavailable
 	VesselStatus status = 7;
 	uint32 current_trip_id = 8;
-}
-
-message ChangeSettingsResponse {
-	uint32 message_id = 1; //refers to the message_id used in "ChangeSettings"
 }
 
 message TripInfoUpdateStatus {

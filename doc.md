@@ -183,7 +183,7 @@ message NoticeResponse {
 ```
 
 #### [`2`] Ping
-Response message: Pong
+Response message: Ack
 
 Note that although this uses a message ID, this is not re-sent in case of failure.
 ```protobuf
@@ -193,25 +193,50 @@ message Ping {
 }
 ```
 
-#### [`3`] Pong
-Response to: Ping
+#### [`3`] Ack
+Response to: Ping, ModifyServerKeys, ChangeSettings
 
 ```protobuf
-message Pong {
-	uint32 message_id = 1; //should be identical to the Ping message it's responding to
+message Ack {
+	uint32 message_id = 1;
 	Timestamp time_generated = 2;
 }
 ```
+
+* `message_id` — should be identical to the message it's responding to.
+* `time_generated` — time the Ack message is generated.
 
 ### Unencrypted Messages
 These messages have payloads that are unencrypted but signed. The nonce, mac, and reserved entries in the payload header form the message signature.
 
 #### [`10`] Crypto Error
+Sent whenever there's a cryptography-related error that occurred, usually due to wrong keys or tampering of data.
+
 ```protobuf
 message CryptoError {
 	string details = 1;	
 }
 ```
+
+#### [`11`] Modify Server Keys*
+Response message: Ack
+
+Sent by the master server instructing clients to modify their server key database. Unlike other 
+```protobuf
+message ModifyServerKeys {
+	enum Operation {
+		UPSERT = 0,
+		DELETE = 1
+	}
+
+	uint32 message_id = 1;
+	Timestamp time_issued = 2;
+	Operation operation = 3;
+	uint32 server_id = 4;
+	bytes public_key = 5;
+}
+```
+
 
 ### Client Messages
 #### [`20`] Location Update
@@ -228,16 +253,7 @@ message LocationUpdate {
 }
 ```
 
-#### [`21`] Change Settings Response
-Response to: Change Settings
-
-```protobuf
-message ChangeSettingsResponse {
-	uint32 message_id = 1; //refers to the message_id used in "ChangeSettings"
-}
-```
-
-#### [`22`] Trip Info Update Status
+#### [`21`] Trip Info Update Status
 Response to: Trip Info Update
 
 Sent:
@@ -259,7 +275,7 @@ message TripInfoUpdateStatus {
 
 ### Server Messages
 #### [`50`] Change Settings*
-Response message: Change Settings Response
+Response message: Ack
 
 If the total ChangeSettings payload exceeds 540 bytes, the settings list must be split and sent separately.
 Setting string values are formatted according to the JSON protobuf mapping stated [here](https://developers.google.com/protocol-buffers/docs/proto3#json).

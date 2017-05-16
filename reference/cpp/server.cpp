@@ -221,29 +221,24 @@ void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address,
 			PARSE_MESSAGE(obdi::Ping, ping);
 			cout << "Received from " << vessel_id << ": " << ping.DebugString() << endl;
 
-			obdi::Pong pong;
-			pong.set_message_id(ping.message_id());
+			obdi::Ack ack;
+			ack.set_message_id(ping.message_id());
 			using namespace google::protobuf;
-			pong.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
+			ack.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
 			
-			const auto &send_data = prepare_message(pong, MessageType::PONG, vessel_id);
+			const auto &send_data = prepare_message(ack, MessageType::ACK, vessel_id);
 			
-			SEND_MESSAGE(obdi::Pong, send_data);
+			SEND_MESSAGE(obdi::Ack, send_data);
 			break;
 		}
-		case MessageType::PONG: {
-			PARSE_MESSAGE(obdi::Pong, pong);
-			cout << "Received from " << vessel_id << ": " << pong.DebugString() << endl;
+		case MessageType::ACK: {
+			PARSE_MESSAGE(obdi::Ack, ack);
+			cout << "Received from " << vessel_id << ": " << ack.DebugString() << endl;
 			break;
 		}
 		case MessageType::LOCATION_UPDATE: {
 			PARSE_MESSAGE(obdi::LocationUpdate, location_update);
 			cout << "Received from " << vessel_id << ": " << location_update.DebugString() << endl;
-			break;
-		}
-		case MessageType::CHANGE_SETTINGS_RESPONSE: {
-			PARSE_MESSAGE(obdi::ChangeSettingsResponse, change_settings_response);
-			cout << "Received from " << vessel_id << ": " << change_settings_response.DebugString() << endl;
 			break;
 		}
 		case MessageType::TRIP_INFO_UPDATE_STATUS: {

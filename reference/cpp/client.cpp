@@ -244,19 +244,19 @@ void dispatch_message(const sockaddr_storage &address, const socklen_t address_l
 			PARSE_MESSAGE(obdi::Ping, ping);
 			cout << "Received from server: " << ping.DebugString() << endl;
 
-			obdi::Pong pong;
-			pong.set_message_id(ping.message_id());
+			obdi::Ack ack;
+			ack.set_message_id(ping.message_id());
 			using namespace google::protobuf;
-			pong.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
+			ack.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
 			
-			const auto &send_data = prepare_message(pong, MessageType::PONG);
+			const auto &send_data = prepare_message(ack, MessageType::ACK);
 			
-			SEND_MESSAGE(obdi::Pong, send_data);
+			SEND_MESSAGE(obdi::Ack, send_data);
 			break;
 		}
-		case MessageType::PONG: {
-			PARSE_MESSAGE(obdi::Pong, pong);
-			cout << "Received from server: " << pong.DebugString() << endl;
+		case MessageType::ACK: {
+			PARSE_MESSAGE(obdi::Ack, ack);
+			cout << "Received from server: " << ack.DebugString() << endl;
 			break;
 		}
 		case MessageType::CRYPTO_ERROR: {
@@ -265,7 +265,6 @@ void dispatch_message(const sockaddr_storage &address, const socklen_t address_l
 			break;	
 		}
 		case MessageType::LOCATION_UPDATE:
-		case MessageType::CHANGE_SETTINGS_RESPONSE:
 		case MessageType::TRIP_INFO_UPDATE_STATUS: {
 			cout << "Received client message from server.\n";
 			break;
@@ -274,11 +273,14 @@ void dispatch_message(const sockaddr_storage &address, const socklen_t address_l
 			PARSE_MESSAGE(obdi::ChangeSettings, change_settings);
 			cout << "Received from server: " << change_settings.DebugString() << endl;
 
-			obdi::ChangeSettingsResponse response;
-			response.set_message_id(change_settings.message_id());
-			const auto &send_data = prepare_message(response, MessageType::CHANGE_SETTINGS_RESPONSE);
-
-			SEND_MESSAGE(obdi::ChangeSettingsResponse, send_data);
+			obdi::Ack ack;
+			ack.set_message_id(change_settings.message_id());
+			using namespace google::protobuf;
+			ack.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
+			
+			const auto &send_data = prepare_message(ack, MessageType::ACK);
+			
+			SEND_MESSAGE(obdi::Ack, send_data);
 			break;
 		}
 		case MessageType::ERROR: {
