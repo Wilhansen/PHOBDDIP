@@ -32,6 +32,7 @@ using namespace std;
 std::unique_ptr<ServerCrypto> server_crypto;
 int main_socket;
 const uint8_t marker_data[4] = OBDI_MARKER_DATA;
+const uint32_t SERVER_ID = 0;
 
 void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address, const socklen_t address_length, const MessageType message_type, const void *payload, const size_t payload_size);
 
@@ -44,6 +45,7 @@ vector<uint8_t> prepare_message(const M& m, const MessageType message_type, cons
 	memcpy(header->marker, marker_data, sizeof(marker_data));
 	header->version = 0;
 	header->message_type = message_type;
+	header->server_id = SERVER_ID;
 	header->payload_header.payload_size = response_data.size();
 	server_crypto->encrypt_payload(vessel_id, header->payload_header,
 		response_data.data(), send_data.data() + sizeof(ServerMessageHeader));
@@ -160,6 +162,7 @@ int main(int argc, char **argv) {
 				auto header = reinterpret_cast<ServerMessageHeader*>(send_data.data());
 				memcpy(header->marker, marker_data, sizeof(marker_data));
 				header->version = 0;
+				header->server_id = SERVER_ID;
 				header->message_type = MessageType::CRYPTO_ERROR;
 				header->payload_header.payload_size = response_data.size();
 

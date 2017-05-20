@@ -53,6 +53,19 @@ message CryptoError {
 	string details = 1;	
 }
 
+message ModifyServerKeys {
+	enum Operation {
+		UPSERT = 0;
+		DELETE = 1;
+	}
+
+	uint32 message_id = 1;
+	google.protobuf.Timestamp time_issued = 2;
+	Operation operation = 3;
+	uint32 server_id = 4;
+	bytes public_key = 5;
+}
+
 message LocationUpdate {
 	google.protobuf.Timestamp ts = 1;
 	float longitude = 2;
@@ -82,13 +95,12 @@ message ChangeSettings {
 message Error {
 	enum Reason {
 		PAYLOAD_SIZE_MISMATCH = 0;
-		PAYLOAD_CANNOT_DECRYPT = 1;
-		PAYLOAD_PARSE_FAIL = 2;
-		INVALID_MESSAGE_TYPE = 3;
-		INVALID_SETTING_VALUES = 4;
+		PAYLOAD_PARSE_FAIL = 1;
+		INVALID_MESSAGE_TYPE = 2;
+		INVALID_SETTING_VALUES = 3;
 	}
 	Reason code = 1;
-	uint32 message_id = 2; //the message id this error refers to
+	uint32 message_id = 2; //the message id this error refers to, if it exists
 	string details = 3;
 }
 

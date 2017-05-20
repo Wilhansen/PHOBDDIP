@@ -1,5 +1,5 @@
 # OBD Data Interchange Protocol
-Updated: 2017.05.15
+Updated: 2017.05.20
 
 Author: Wilhansen Li
 <!--TOC-->
@@ -74,6 +74,11 @@ struct ServerMessageHeader {
 ### Payload Header
 The `payload_header` is as follows:
 ```
+#define NONCE_SIZE 24 // = crypto_secretbox_NONCEBYTES
+#define MAC_SIZE 16 // = crypto_secretbox_MACBYTES
+#define RESERVE_SIZE 24
+#define SIGNATURE_SIZE 64 // = crypto_sign_BYTES
+
 struct PayloadHeader {
 	uint16_t payload_size;
 	union {
@@ -97,7 +102,7 @@ Numbers in square brackets are the message type IDs.
 
 Messages listed below with an asterisk (`*`) have to be sent reliably; they have "response" counterparts. These have a `message_id` field for tracking and response messages should use the same `message_id` as the original message it is responding to.
 
-The value of the `message_id` does not matter as long as it is unique for all reliable message within a day. One way to implement the distribution of `message_id` is to keep a global message_id counter which increments everytime a message is constructed (i.e. `current_message.message_id = message_id_counter++`).
+The value of the `message_id` does not matter as long as it is 1) not zero and 2) unique for all reliable message within a day. One way to implement the distribution of `message_id` is to keep a global message_id counter which increments everytime a message is constructed (i.e. `current_message.message_id = message_id_counter++`). A zero-valued `message_id` is an invalid `message_id`.
 
 The sender algorithm is as follows:
 
@@ -120,7 +125,7 @@ while( try_count < 10 ) {
 fail();
 ```
 
-The reciever algorithm is as follows
+The receiver algorithm is as follows
 ```Swift
 var tracker = Map<int32, Timestamp>();
 var packet = listen();
@@ -197,6 +202,8 @@ message Ping {
 }
 ```
 
+* `time_generated` — time this Ping message is generated.
+
 #### [`3`] Ack
 Response to: Ping, ModifyServerKeys, ChangeSettings
 
@@ -211,7 +218,7 @@ message Ack {
 * `time_generated` — time the Ack message is generated.
 
 ### Unencrypted Messages
-These messages have payloads that are unencrypted but signed. The nonce, mac, and reserved entries in the payload header form the message signature.
+These messages have payloads that are unencrypted but signed using `crypto_sign*`. The `nonce`, `mac`, and `reserved` entries in the payload header form the message signature.
 
 #### [`10`] Crypto Error
 Sent whenever there's a cryptography-related error that occurred, usually due to wrong keys or tampering of data.
@@ -225,13 +232,13 @@ message CryptoError {
 #### [`11`] Modify Server Keys*
 Response message: Ack
 
-Sent by the master server instructing clients to modify their server key database. Unlike other messages, this is not signed by the server key, but by the special master key.
+Sent by the master server instructing clients to modify their server key database. Unlike other messages, this is not signed by the server key, but by the master key.
 
 ```protobuf
 message ModifyServerKeys {
 	enum Operation {
-		UPSERT = 0,
-		DELETE = 1
+		UPSERT = 0;
+		DELETE = 1;
 	}
 
 	uint32 message_id = 1;
@@ -282,6 +289,8 @@ message TripInfoUpdateStatus {
 }
 ```
 
+* `update_id` — ID of the TripInfoUpdate this message is responding to.
+
 ### Server Messages
 #### [`50`] Change Settings*
 Response message: Ack
@@ -306,16 +315,17 @@ message ChangeSettings {
 message Error {
 	enum Reason {
 		PAYLOAD_SIZE_MISMATCH = 0;
-		PAYLOAD_CANNOT_DECRYPT = 1;
-		PAYLOAD_PARSE_FAIL = 2;
-		INVALID_MESSAGE_TYPE = 3;
-		INVALID_SETTING_VALUES = 4;
+		PAYLOAD_PARSE_FAIL = 1;
+		INVALID_MESSAGE_TYPE = 2;
+		INVALID_SETTING_VALUES = 3;
 	}
 	Reason code = 1;
-	uint32 message_id = 2; //the message id this error refers to
+	uint32 message_id = 2;
 	string details = 3;
 }
 ```
+
+* `message_id` — The message ID the error is responding to, if available. If the message has no ID, this value is 0.
 
 #### [`52`] ETA Update
 ```protobuf
@@ -325,7 +335,10 @@ message ETAUpdate {
 	double meters_left = 3;
 	float percentage_completed = 4;
 }
-```
+
+* `server_timestamp` - time the ETA update was generated.
+* `time_remaining` — estimated time remaining in the trip, use this with `server_timestamp` to compute the current remaining time in the client.
+* `percentage_completed` — value from 0 to 1 with 0 being the start of the trip and 1 being the end of the trip.
 
 #### [`53`] Trip Info Update*
 Response message: Trip Info Update Status
