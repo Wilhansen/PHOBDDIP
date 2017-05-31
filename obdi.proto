@@ -67,14 +67,17 @@ message ModifyServerKeys {
 }
 
 message LocationUpdate {
-	google.protobuf.Timestamp ts = 1;
-	float longitude = 2;
-	float latitude = 3;
-	float bearing = 4;
-	float speed = 5;
-	int32 current_load = 6; //negative number if unavailable
-	VesselStatus status = 7;
-	uint32 current_trip_id = 8;
+	message Entry {
+		google.protobuf.Timestamp ts = 1;
+		float longitude = 2;
+		float latitude = 3;
+		float bearing = 4;
+		float speed = 5;
+		int32 current_load = 6;
+		VesselStatus status = 7;
+		uint32 current_trip_id = 8;
+	};
+	repeated Entry entries = 1;
 }
 
 message TripInfoUpdateStatus {

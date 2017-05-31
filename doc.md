@@ -1,5 +1,5 @@
 # OBD Data Interchange Protocol
-Updated: 2017.05.20
+Updated: 2017.05.31
 
 Author: Wilhansen Li
 <!--TOC-->
@@ -256,16 +256,23 @@ message ModifyServerKeys {
 #### [`20`] Location Update
 ```protobuf
 message LocationUpdate {
-	Timestamp ts = 1;
-	float longitude = 2;
-	float latitude = 3;
-	float bearing = 4;
-	float speed = 5;
-	int32 current_load = 6;
-	VesselStatus status = 7;
-	uint32 current_trip_id = 8;
+	message Entry {
+		Timestamp ts = 1;
+		float longitude = 2;
+		float latitude = 3;
+		float bearing = 4;
+		float speed = 5;
+		int32 current_load = 6;
+		VesselStatus status = 7;
+		uint32 current_trip_id = 8;
+	};
+	repeated Entry entries = 1;
 }
 ```
+
+Multiple location update entries may be sent in a LocationUpdateMessage as long as it's under the MTU.
+
+* `entries` — Location update entries, must be sorted from earliest to latest.
 * `current_load` — current number of passengers if applicable. Use `-1` if the value is unavailable.
 * `current_trip_id` — ID of the trip the vessel is currently in. Use `0` if the trip in unknown or unavailable.
 
@@ -335,6 +342,7 @@ message ETAUpdate {
 	double meters_left = 3;
 	float percentage_completed = 4;
 }
+```
 
 * `server_timestamp` - time the ETA update was generated.
 * `time_remaining` — estimated time remaining in the trip, use this with `server_timestamp` to compute the current remaining time in the client.
