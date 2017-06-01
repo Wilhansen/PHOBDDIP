@@ -1,5 +1,5 @@
 # OBD Data Interchange Protocol
-Updated: 2017.05.31
+Updated: 2017.06.01
 
 Author: Wilhansen Li
 <!--TOC-->
@@ -8,9 +8,9 @@ Author: Wilhansen Li
 
 1. Minimize data consumption.
 2. Keep security in mind.
-3. Make data formats clear.
+3. Structured data formats.
 
-##
+## Overview
 1. Limit everything to 1 MTU (576 bytes).
 2. Utilize binary formats, [protobuf3](https://developers.google.com/protocol-buffers/docs/proto3) in particular.
 3. Utilize [libsodium](https://download.libsodium.org) library for cryptography (the protocol currently requires libsodium 1.0.12+).
@@ -37,7 +37,7 @@ All payloads are protobuf3-encoded decryptable using the reception key from the 
 
 ### Client to Server
 All messages from client to server are prepended with the following header:
-```c++
+```cpp
 struct ClientMessageHeader {
 	uint8_t marker[4];
 	uint8_t version;
@@ -56,7 +56,7 @@ struct ClientMessageHeader {
 
 ### Server to Client
 All messages from server to client are prepended with the following header:
-```c++
+```cpp
 struct ServerMessageHeader {
 	uint8_t marker[4];
 	uint8_t version;
