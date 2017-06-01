@@ -22,7 +22,7 @@ SecureMemory::~SecureMemory() {
 }
 
 KeyPair KeyPair::generate() {
-	KeyPair kp = {SecureMemory(crypto_sign_ed25519_PUBLICKEYBYTES), SecureMemory(crypto_sign_ed25519_SECRETKEYBYTES)};
+	KeyPair kp = {SecureMemory(crypto_sign_ed25519_SECRETKEYBYTES), SecureMemory(crypto_sign_ed25519_PUBLICKEYBYTES)};
 
 	crypto_sign_keypair(kp.public_key.data(), kp.secret_key.data());
 	return kp;
