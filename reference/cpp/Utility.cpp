@@ -66,7 +66,7 @@ ServerCrypto::ServerCrypto(const char *keydir) : m_keydir(keydir), server_sk(cry
 namespace {
 	string client_keyfile(const uint64_t client_id) {
 		char buffer[64] = { 0 };
-		sprintf(buffer, "%16llX.pub", client_id);
+		sprintf(buffer, "%016llX.pub", client_id);
 		return string(buffer);
 	}
 }
