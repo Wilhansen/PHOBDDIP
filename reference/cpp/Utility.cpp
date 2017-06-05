@@ -78,7 +78,7 @@ ServerCrypto::Result ServerCrypto::load_keys(const uint64_t client_id, SessionKe
 	if ( client_sign_pk.empty() ) {
 		return KEY_NOT_FOUND;
 	}
-	if ( client_sign_pk.size() != crypto_sign_ed25519_SECRETKEYBYTES ) {
+	if ( client_sign_pk.size() != crypto_sign_ed25519_PUBLICKEYBYTES ) {
 		return WRONG_CLIENT_KEY_SIZE;
 	}
 
