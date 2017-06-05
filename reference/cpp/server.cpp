@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
 		("l,listen", "address to listen",
 			cxxopts::value<string>()->default_value("0.0.0.0"))
 		("p,port", "port to listen",
-			cxxopts::value<uint16_t>()->default_value("1234"))
+			cxxopts::value<string>()->default_value("1234"))
 		("k,keydir", "Directory where server.pub, server.key, and client public keys are. Client public keys should be named as [id-hex].pub",
 			cxxopts::value<string>()->default_value("keys"))
 		("h,help", "Print help")

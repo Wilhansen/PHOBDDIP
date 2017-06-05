@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
 		("s,server", "Server address.",
 			cxxopts::value<string>()->default_value("localhost"))
 		("p,port", "Server port.",
-			cxxopts::value<uint16_t>()->default_value("1234"))
+			cxxopts::value<string>()->default_value("1234"))
 		("id", "Client id.",
 			cxxopts::value<uint64_t>()->default_value("1"))
 		("pub", "Public key path.",
