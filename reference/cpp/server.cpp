@@ -38,8 +38,8 @@ void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address,
 
 template<typename M>
 vector<uint8_t> prepare_message(const M& m, const MessageType message_type, const uint64_t vessel_id) {
-        unsigned char data[m.ByteSize()];
-        m.SerializeToArray(data, m.ByteSize());
+	unsigned char data[m.ByteSize()];
+	m.SerializeToArray(data, m.ByteSize());
 	vector<uint8_t> send_data(sizeof(ServerMessageHeader) + m.ByteSize());
 	auto header = reinterpret_cast<ServerMessageHeader*>(send_data.data());
 	memcpy(header->marker, marker_data, sizeof(marker_data));
