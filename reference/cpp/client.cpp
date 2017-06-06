@@ -118,11 +118,11 @@ int main(int argc, char **argv) {
 				
 				continue;
 			}
-			if ( ::bind(main_socket, p->ai_addr, p->ai_addrlen) == -1 ) {
-				const auto desc = strerror(errno);
-				cerr << "[WARNING] Unable to bind socket to address: " << desc << endl;
-				continue;
-			}
+			//if ( ::bind(main_socket, p->ai_addr, p->ai_addrlen) == -1 ) {
+			//	const auto desc = strerror(errno);
+			//	cerr << "[WARNING] Unable to bind socket to address: " << desc << endl;
+			//	continue;
+			//}
 
 			memcpy(&server_addr, p->ai_addr, p->ai_addrlen);
 			server_addrlen = p->ai_addrlen;
@@ -191,6 +191,21 @@ int main(int argc, char **argv) {
 			if ( command_buffer[0] == 'q' ) {
 				break;
 			}
+                        if ( command_buffer[0] == 'n') {
+                                obdi::Notice notice;
+                                notice.set_message_id(1);
+                                notice.set_details("Hello world!");
+                                using namespace obdi;
+                                notice.set_severity(INFO);
+                                using namespace google::protobuf;
+                                notice.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
+
+                                const auto &message = prepare_message(notice, MessageType::NOTICE);
+                                auto sent_size = sendto(main_socket, message.data(), message.size(), 0, (sockaddr*)&server_addr, server_addrlen);
+                                if ( sent_size != message.size() ) {
+                                        cerr << "[WARNING] Sent notice message size mismatch (actual: " << sent_size << ", expected: " << message.size() << ")" << endl;
+                                }
+                        }
 		}
 		is_running = false;
 		dispatch_thread.join();
