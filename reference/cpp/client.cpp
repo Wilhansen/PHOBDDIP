@@ -40,14 +40,15 @@ template<typename M>
 vector<uint8_t> prepare_message(const M& m, const MessageType message_type) {
 	const auto &response_data = m.SerializeAsString();
 
-	vector<uint8_t> send_data(sizeof(ServerMessageHeader) + response_data.size());
-	auto header = reinterpret_cast<ServerMessageHeader*>(send_data.data());
+	vector<uint8_t> send_data(sizeof(ClientMessageHeader) + response_data.size());
+	auto header = reinterpret_cast<ClientMessageHeader*>(send_data.data());
 	memcpy(header->marker, marker_data, sizeof(marker_data));
+        header->vessel_id = 1;
 	header->version = 0;
 	header->message_type = message_type;
 	header->payload_header.payload_size = response_data.size();
 	client_crypto->encrypt_payload(header->payload_header,
-		response_data.data(), send_data.data() + sizeof(ServerMessageHeader));
+		response_data.data(), send_data.data() + sizeof(ClientMessageHeader));
 	return send_data;
 }
 
