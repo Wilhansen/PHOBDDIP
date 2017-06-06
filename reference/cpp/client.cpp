@@ -197,40 +197,55 @@ int main(int argc, char **argv) {
 			if ( command_buffer[0] == 'q' ) {
 				break;
 			}
-			if ( command_buffer[0] == 'n') {
+			if ( strcmp(command_buffer.c_str(), "notice") == 0 ) {
 				obdi::Notice notice;
 				notice.set_message_id(1);
-				notice.set_details("Hello world!");
+				string notice_message;
+				cout << "Enter notice message: ";
+				getline(cin, notice_message);
+				notice.set_details(notice_message);
 				using namespace obdi;
-				notice.set_severity(INFO);
+				cout << "Enter severity: ";
+				int severity;
+				cin >> severity;
+				notice.set_severity((Severity)severity);
 				using namespace google::protobuf;
 				notice.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
 
-				const auto &message = prepare_message(notice, MessageType::NOTICE);
-				SEND_USER_MESSAGE(obdi::Notice, message);
+				SEND_USER_MESSAGE(obdi::Notice, prepare_message(notice, MessageType::NOTICE));
 			}
-			if ( command_buffer[0] == 'p' ) {
+			if ( strcmp(command_buffer.c_str(), "ping") == 0 ) {
 				obdi::Ping ping;
 				ping.set_message_id(1);
 				using namespace google::protobuf;
 				ping.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
 
-				const auto &message = prepare_message(ping, MessageType::PING);
-				SEND_USER_MESSAGE(obdi::Ping, message);
+				SEND_USER_MESSAGE(obdi::Ping, prepare_message(ping, MessageType::PING));
 			}
-			if ( command_buffer[0] == 's') {
+			if ( strcmp(command_buffer.c_str(), "location update") == 0 ) {
 				obdi::LocationUpdate lu;
 				using namespace google::protobuf;
 				obdi::LocationUpdate::Entry* e = lu.add_entries();
 				e->set_allocated_ts(new Timestamp(util::TimeUtil::GetCurrentTime()));
-				e->set_longitude(15.0f);
-				e->set_latitude(30.0f);
-				e->set_bearing(45.0f);
-				e->set_speed(60.0f);
-				e->set_current_load(1);
+				float longitude, latitude, bearing, speed;
+				int current_load, status, current_trip_id;
+
+				cout << "Enter longitude: "; cin >> longitude;
+				cout << "Enter latitude: "; cin >> latitude;
+				cout << "Enter bearing: "; cin >> bearing;
+				cout << "Enter speed: "; cin >> speed;
+				cout << "Enter current load: "; cin >> current_load;
+				cout << "Enter status: "; cin >> status;
+				cout << "Enter trip ID: "; cin >> current_trip_id;
+
+				e->set_longitude(longitude);
+				e->set_latitude(latitude);
+				e->set_bearing(bearing);
+				e->set_speed(speed);
+				e->set_current_load(current_load);
 				using namespace obdi;
-				e->set_status(TRANSIT);
-				e->set_current_trip_id(15);
+				e->set_status((VesselStatus)status);
+				e->set_current_trip_id(current_trip_id);
 				
 				SEND_USER_MESSAGE(obdi::LocationUpdate, prepare_message(lu, MessageType::LOCATION_UPDATE))
 			}
