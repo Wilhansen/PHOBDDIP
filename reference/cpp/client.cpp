@@ -172,7 +172,7 @@ int main(int argc, char **argv) {
 						cerr << "[WARNING] Signed server payload verification failed.\n";
 						continue;
 					}
-				} else if ( !client_crypto->decrypt_payload(client_header->payload_header, buffer + sizeof(*client_header)) ) {
+				} else if ( client_crypto->decrypt_payload(client_header->payload_header, buffer + sizeof(*client_header)) != ClientCrypto::OK ) {
 					cerr << "[WARNING] Unable to decrypt server payload.\n";
 					continue;
 				}

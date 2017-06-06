@@ -87,11 +87,9 @@ ServerCrypto::Result ServerCrypto::load_keys(const uint64_t client_id, SessionKe
 
 	SecureMemory reception_key(crypto_kx_SESSIONKEYBYTES),
 				 transmisson_key(crypto_kx_SESSIONKEYBYTES);
-
-	if ( !crypto_kx_server_session_keys(reception_key.data(), transmisson_key.data(), server_pk.data(), server_sk.data(), client_pk.data()) ) {
+	if ( crypto_kx_server_session_keys(reception_key.data(), transmisson_key.data(), server_pk.data(), server_sk.data(), client_pk.data()) != 0 ) {
 		return WRONG_KEY;
 	}
-
 	dst.reception_key = move(reception_key);
 	dst.transmisson_key = move(transmisson_key);
 
@@ -105,9 +103,9 @@ ServerCrypto::Result ServerCrypto::decrypt_payload(const uint64_t client_id, con
 		return r;
 	}
 
-	if ( !crypto_secretbox_open_detached((uint8_t*)payload, (uint8_t*)payload,
+	if ( crypto_secretbox_open_detached((uint8_t*)payload, (uint8_t*)payload,
 		payload_header.mac, payload_header.payload_size,
-		payload_header.nonce, kp.reception_key.data()) ) {
+		payload_header.nonce, kp.reception_key.data()) != 0 ) {
 		return INVALID_PAYLOAD;
 	} else {
 		return OK;
@@ -168,9 +166,9 @@ client_id(client_id), client_rx(crypto_kx_SESSIONKEYBYTES), client_tx(crypto_kx_
 }
 
 ClientCrypto::Result ClientCrypto::decrypt_payload(const PayloadHeader &payload_header, void *payload) {
-	if ( !crypto_secretbox_open_detached((uint8_t*)payload, (uint8_t*)payload,
+	if ( crypto_secretbox_open_detached((uint8_t*)payload, (uint8_t*)payload,
 		payload_header.mac, payload_header.payload_size,
-		payload_header.nonce, client_rx.data()) ) {
+		payload_header.nonce, client_rx.data()) != 0 ) {
 		return INVALID_PAYLOAD;
 	} else {
 		return OK;
