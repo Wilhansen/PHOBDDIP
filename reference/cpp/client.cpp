@@ -184,6 +184,12 @@ int main(int argc, char **argv) {
 		
 		cout << "Client started.\n";
 		string command_buffer;
+#define SEND_USER_MESSAGE(Type, message) { \
+        auto sent_size = sendto(main_socket, message.data(), message.size(), 0, (sockaddr*)&server_addr, server_addrlen); \
+        if ( sent_size != message.size() ) { \
+                cerr << "[WARNING] Sent " #Type " message size mismatch (actual: " << sent_size << ", expected: " << message.size() << ")" << endl; \
+        } \
+} 
 		while( getline(cin, command_buffer) ) {
 			if ( command_buffer.empty() ) {
 				continue;
@@ -191,21 +197,44 @@ int main(int argc, char **argv) {
 			if ( command_buffer[0] == 'q' ) {
 				break;
 			}
-                        if ( command_buffer[0] == 'n') {
-                                obdi::Notice notice;
-                                notice.set_message_id(1);
-                                notice.set_details("Hello world!");
-                                using namespace obdi;
-                                notice.set_severity(INFO);
-                                using namespace google::protobuf;
-                                notice.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
+			if ( command_buffer[0] == 'n') {
+				obdi::Notice notice;
+				notice.set_message_id(1);
+				notice.set_details("Hello world!");
+				using namespace obdi;
+				notice.set_severity(INFO);
+				using namespace google::protobuf;
+				notice.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
 
-                                const auto &message = prepare_message(notice, MessageType::NOTICE);
-                                auto sent_size = sendto(main_socket, message.data(), message.size(), 0, (sockaddr*)&server_addr, server_addrlen);
-                                if ( sent_size != message.size() ) {
-                                        cerr << "[WARNING] Sent notice message size mismatch (actual: " << sent_size << ", expected: " << message.size() << ")" << endl;
-                                }
-                        }
+				const auto &message = prepare_message(notice, MessageType::NOTICE);
+				SEND_USER_MESSAGE(obdi::Notice, message);
+			}
+			if ( command_buffer[0] == 'p' ) {
+				obdi::Ping ping;
+				ping.set_message_id(1);
+				using namespace google::protobuf;
+				ping.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
+
+				const auto &message = prepare_message(ping, MessageType::PING);
+				SEND_USER_MESSAGE(obdi::Ping, message);
+			}
+			if ( command_buffer[0] == 's') {
+				obdi::LocationUpdate lu;
+				using namespace google::protobuf;
+				obdi::LocationUpdate::Entry* e = lu.add_entries();
+				e->set_allocated_ts(new Timestamp(util::TimeUtil::GetCurrentTime()));
+				e->set_longitude(15.0f);
+				e->set_latitude(30.0f);
+				e->set_bearing(45.0f);
+				e->set_speed(60.0f);
+				e->set_current_load(1);
+				using namespace obdi;
+				e->set_status(TRANSIT);
+				e->set_current_trip_id(15);
+				
+				SEND_USER_MESSAGE(obdi::LocationUpdate, prepare_message(lu, MessageType::LOCATION_UPDATE))
+			}
+
 		}
 		is_running = false;
 		dispatch_thread.join();
