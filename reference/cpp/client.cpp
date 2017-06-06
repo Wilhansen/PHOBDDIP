@@ -209,7 +209,7 @@ int main(int argc, char **argv) {
 void dispatch_message(const sockaddr_storage &address, const socklen_t address_length, const MessageType message_type, const void *payload, const size_t payload_size) {
 #define PARSE_MESSAGE(Type, ident) \
 	Type ident;\
-	if ( !ident.ParseFromArray(payload, payload_size) ) { \
+	if ( !ident.ParseFromString((const char*)payload) ) { \
 		cerr << "[WARNING] Unable to parse " #Type " message.\n"; \
 		break; \
 	}
