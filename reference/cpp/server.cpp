@@ -38,17 +38,17 @@ void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address,
 
 template<typename M>
 vector<uint8_t> prepare_message(const M& m, const MessageType message_type, const uint64_t vessel_id) {
-	const auto &response_data = m.SerializeAsString();
-
-	vector<uint8_t> send_data(sizeof(ServerMessageHeader) + response_data.size());
+        unsigned char data[m.ByteSize()];
+        m.SerializeToArray(data, m.ByteSize());
+	vector<uint8_t> send_data(sizeof(ServerMessageHeader) + m.ByteSize());
 	auto header = reinterpret_cast<ServerMessageHeader*>(send_data.data());
 	memcpy(header->marker, marker_data, sizeof(marker_data));
 	header->version = 0;
 	header->message_type = message_type;
 	header->server_id = SERVER_ID;
-	header->payload_header.payload_size = response_data.size();
+	header->payload_header.payload_size = m.ByteSize();
 	server_crypto->encrypt_payload(vessel_id, header->payload_header,
-		response_data.data(), send_data.data() + sizeof(ServerMessageHeader));
+		data, send_data.data() + sizeof(ServerMessageHeader));
 	return send_data;
 }
 
@@ -188,7 +188,7 @@ int main(int argc, char **argv) {
 void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address, const socklen_t address_length, const MessageType message_type, const void *payload, const size_t payload_size) {
 #define PARSE_MESSAGE(Type, ident) \
 	Type ident;\
-	if ( !ident.ParseFromString((const char*)payload) ) { \
+	if ( !ident.ParseFromArray(payload, payload_size) ) { \
 		cerr << "[WARNING] Unable to parse " #Type " message from " << vessel_id << endl; \
 		break; \
 	}
