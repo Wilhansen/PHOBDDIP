@@ -213,7 +213,11 @@ message NoticeResponse {
 #### [`2`] Ping
 Response message: Ack
 
-Note that although this uses a message ID, this is not re-sent in case of failure.
+Notes:
+
+* Although this uses a message ID, this is not re-sent in case of failure.
+* The sender may pad the packet with more bytes than the actual size of the ping data (but the `payload_size` must be kept to the size of the actual payload) in order to discover the actual MTU. It is recommended to do this only when the need to send more than 576 bytes of data arises.
+
 ```protobuf
 message Ping {
 	uint32 message_id = 1;
