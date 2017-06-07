@@ -243,6 +243,15 @@ void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address,
 		case MessageType::LOCATION_UPDATE: {
 			PARSE_MESSAGE(obdi::LocationUpdate, location_update);
 			cout << "Received from " << vessel_id << ": " << location_update.DebugString() << endl;
+
+			obdi::ETAUpdate etaUpdate;
+			using namespace google::protobuf;
+			etaUpdate.set_allocated_server_timestamp(new Timestamp(util::TimeUtil::GetCurrentTime()));
+
+			etaUpdate.set_allocated_time_remaining(new Duration(util::TimeUtil::SecondsToDuration(30)));
+			etaUpdate.set_meters_left(15.0);
+			etaUpdate.set_percentage_completed(50.0f);
+			SEND_MESSAGE(obdi::ETAUpdate, prepare_message(etaUpdate, MessageType::ETA_UPDATE, vessel_id));
 			break;
 		}
 		case MessageType::TRIP_INFO_UPDATE_STATUS: {
