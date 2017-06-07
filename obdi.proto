@@ -20,6 +20,7 @@ enum VesselStatus {
 	LOADING = 1;
 	SERVICING = 2;
 	EMERGENCY = 3;
+	INACTIVE = 4;
 }
 
 message Setting {

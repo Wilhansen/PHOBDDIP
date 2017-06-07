@@ -153,14 +153,33 @@ enum Severity {
 	ACCIDENT = 5;
 	ENVIRONMENT = 6;
 }
+```
+Error code indicating the severity of the notice:
+* `DEBUG` — Debugging message, may be safely ignored in production.
+* `INFO` — Informational message that does not correspond to any form of error.
+* `WARNING` — Non-fatal on-board device error. Source of the warning may be fixed at a latter date.
+* `SYSTEM_ERROR` — Irrecoverable on-board device error. The on-board device should be inspected as soon as possible.
+* `MECHANICAL_FAILURE` — The vessel (not just the on-board device) has experienced a mechanical failure.
+* `ACCIDENT` — The vessel is caught in accident.
+* `ENVIRONMENT` — Environmental effects (such as flooding) has prevented the vessel from functioning.
 
+```protobuf
 enum VesselStatus {
 	TRANSIT = 0;
 	LOADING = 1;
 	SERVICING = 2;
 	EMERGENCY = 3;
+	INACTIVE = 4;
 }
+```
+Status code describing the general state of the vessel:
+* `TRANSIT` — The vessel is moving to its next step along its set route.
+* `LOADING` — The vessel is stopped at its designated stop in its route.
+* `SERVICING` — The vessel is active but is not moving along its route. Usually happens if the vessel is moving to and fro its depot.
+* `EMERGENCY` — The vessel has encountered an emergency.
+* `INACTIVE` — The vessel is inactive. Usually happens when the vessel is parked/docked in its depot.
 
+```protobuf
 message Setting {
 	string name = 1;
 	string value = 2;
