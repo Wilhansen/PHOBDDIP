@@ -33,6 +33,7 @@ using namespace std;
 std::unique_ptr<ClientCrypto> client_crypto;
 int main_socket;
 const uint8_t marker_data[4] = OBDI_MARKER_DATA;
+uint64_t client_id = 0;
 uint32_t message_id_counter = 0;
 
 void dispatch_message(const sockaddr_storage &address, const socklen_t address_length, const MessageType message_type, const void *payload, const size_t payload_size);
@@ -44,7 +45,7 @@ vector<uint8_t> prepare_message(const M& m, const MessageType message_type) {
 	vector<uint8_t> send_data(sizeof(ClientMessageHeader) + m.ByteSize());
 	auto header = reinterpret_cast<ClientMessageHeader*>(send_data.data());
 	memcpy(header->marker, marker_data, sizeof(marker_data));
-	header->vessel_id = 1;
+	header->vessel_id = client_id;
 	header->version = 0;
 	header->message_type = message_type;
 	header->payload_header.payload_size = m.ByteSize();
@@ -95,6 +96,8 @@ int main(int argc, char **argv) {
 			options["priv"].as<string>().c_str(),
 			options["sk"].as<string>().c_str()
 		));
+
+		client_id = options["id"].as<uint64_t>();
 
 		struct addrinfo hints = {0}, *service_info = 0;
 		hints.ai_family = AF_UNSPEC;
