@@ -208,7 +208,7 @@ int main(int argc, char **argv) {
 			}
 			if ( strcmp(command_buffer.c_str(), "notice") == 0 ) {
 				obdi::Notice notice;
-				notice.set_message_id(message_id_counter++);
+				notice.set_message_id(GET_MESSAGE_ID);
 				string notice_message;
 				cout << "Enter notice message: ";
 				getline(cin, notice_message);
@@ -219,15 +219,15 @@ int main(int argc, char **argv) {
 				cin >> severity;
 				notice.set_severity((Severity)severity);
 				using namespace google::protobuf;
-				notice.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
+				notice.set_allocated_time_generated(GET_CURRENT_TIME);
 
 				SEND_USER_MESSAGE(obdi::Notice, prepare_message(notice, MessageType::NOTICE));
 			}
 			if ( strcmp(command_buffer.c_str(), "ping") == 0 ) {
 				obdi::Ping ping;
-				ping.set_message_id(message_id_counter++);
+				ping.set_message_id(GET_MESSAGE_ID);
 				using namespace google::protobuf;
-				ping.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
+				ping.set_allocated_time_generated(GET_CURRENT_TIME);
 
 				SEND_USER_MESSAGE(obdi::Ping, prepare_message(ping, MessageType::PING));
 			}
@@ -235,7 +235,7 @@ int main(int argc, char **argv) {
 				obdi::LocationUpdate lu;
 				using namespace google::protobuf;
 				obdi::LocationUpdate::Entry* e = lu.add_entries();
-				e->set_allocated_ts(new Timestamp(util::TimeUtil::GetCurrentTime()));
+				e->set_allocated_ts(GET_CURRENT_TIME);
 				float longitude, latitude, bearing, speed;
 				int current_load, status, current_trip_id;
 
