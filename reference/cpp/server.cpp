@@ -33,6 +33,7 @@ std::unique_ptr<ServerCrypto> server_crypto;
 int main_socket;
 const uint8_t marker_data[4] = OBDI_MARKER_DATA;
 const uint32_t SERVER_ID = 0;
+uint32_t message_id_counter = 0;
 
 void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address, const socklen_t address_length, const MessageType message_type, const void *payload, const size_t payload_size);
 

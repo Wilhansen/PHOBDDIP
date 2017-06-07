@@ -33,6 +33,7 @@ using namespace std;
 std::unique_ptr<ClientCrypto> client_crypto;
 int main_socket;
 const uint8_t marker_data[4] = OBDI_MARKER_DATA;
+uint32_t message_id_counter = 0;
 
 void dispatch_message(const sockaddr_storage &address, const socklen_t address_length, const MessageType message_type, const void *payload, const size_t payload_size);
 
@@ -199,7 +200,7 @@ int main(int argc, char **argv) {
 			}
 			if ( strcmp(command_buffer.c_str(), "notice") == 0 ) {
 				obdi::Notice notice;
-				notice.set_message_id(1);
+				notice.set_message_id(message_id_counter++);
 				string notice_message;
 				cout << "Enter notice message: ";
 				getline(cin, notice_message);
@@ -216,7 +217,7 @@ int main(int argc, char **argv) {
 			}
 			if ( strcmp(command_buffer.c_str(), "ping") == 0 ) {
 				obdi::Ping ping;
-				ping.set_message_id(1);
+				ping.set_message_id(message_id_counter++);
 				using namespace google::protobuf;
 				ping.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
 
