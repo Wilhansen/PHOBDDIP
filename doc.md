@@ -284,6 +284,7 @@ message LocationUpdate {
 		int32 current_load = 6;
 		VesselStatus status = 7;
 		uint32 current_trip_id = 8;
+		uint32 stop = 9;
 	};
 	repeated Entry entries = 1;
 }
@@ -294,6 +295,7 @@ Multiple location update entries may be sent in a LocationUpdateMessage as long 
 * `entries` — Location update entries, must be sorted from earliest to latest.
 * `current_load` — current number of passengers if applicable. Use `-1` if the value is unavailable.
 * `current_trip_id` — ID of the trip the vessel is currently in. Use `0` if the trip in unknown or unavailable.
+* `stop` — ID of the current stop (if `status = LOADING`), or the next stop (if `status = TRANSIT`). Use `0` if the stop is unknown or unavailable.
 
 #### [`21`] Trip Info Update Status
 Response to: Trip Info Update
