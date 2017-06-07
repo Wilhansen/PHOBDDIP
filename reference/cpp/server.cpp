@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
 				cerr << "[WARNING] Payload size field greater than packet size." << endl;
 				continue;
 			}
-			if ( server_crypto->decrypt_payload(client_header->vessel_id, client_header->payload_header, buffer + sizeof(*client_header)) != ServerCrypto::OK ) {
+			if ( server_crypto->decrypt_payload(client_header->vessel_id, client_header->payload_header, buffer + sizeof(*client_header)) != ServerCrypto::Result::OK ) {
 				obdi::CryptoError crypto_error;
 				crypto_error.set_details("Unable to decrypt payload.");
 

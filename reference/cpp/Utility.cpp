@@ -76,10 +76,10 @@ ServerCrypto::Result ServerCrypto::load_keys(const uint64_t client_id, SessionKe
 	const auto client_keypath = m_keydir + client_keyfile(client_id);
 	const auto client_sign_pk = readfile(client_keypath.c_str());
 	if ( client_sign_pk.empty() ) {
-		return KEY_NOT_FOUND;
+		return Result::KEY_NOT_FOUND;
 	}
 	if ( client_sign_pk.size() != crypto_sign_ed25519_PUBLICKEYBYTES ) {
-		return WRONG_CLIENT_KEY_SIZE;
+		return Result::WRONG_CLIENT_KEY_SIZE;
 	}
 
 	vector<uint8_t> client_pk(crypto_kx_PUBLICKEYBYTES);
@@ -88,41 +88,41 @@ ServerCrypto::Result ServerCrypto::load_keys(const uint64_t client_id, SessionKe
 	SecureMemory reception_key(crypto_kx_SESSIONKEYBYTES),
 				 transmisson_key(crypto_kx_SESSIONKEYBYTES);
 	if ( crypto_kx_server_session_keys(reception_key.data(), transmisson_key.data(), server_pk.data(), server_sk.data(), client_pk.data()) != 0 ) {
-		return WRONG_KEY;
+		return Result::WRONG_KEY;
 	}
 	dst.reception_key = move(reception_key);
 	dst.transmisson_key = move(transmisson_key);
 
-	return OK;
+	return Result::OK;
 }
 
 ServerCrypto::Result ServerCrypto::decrypt_payload(const uint64_t client_id, const PayloadHeader &payload_header, void *payload) {
 	SessionKeyPair kp;
 	Result r;
-	if ( (r = load_keys(client_id, kp)) != OK ) {
+	if ( (r = load_keys(client_id, kp)) != Result::OK ) {
 		return r;
 	}
 
 	if ( crypto_secretbox_open_detached((uint8_t*)payload, (uint8_t*)payload,
 		payload_header.mac, payload_header.payload_size,
 		payload_header.nonce, kp.reception_key.data()) != 0 ) {
-		return INVALID_PAYLOAD;
+		return Result::INVALID_PAYLOAD;
 	} else {
-		return OK;
+		return Result::OK;
 	}
 }
 
 ServerCrypto::Result ServerCrypto::encrypt_payload(const uint64_t client_id, PayloadHeader &payload_header, const void *payload, void *destination) {
 	SessionKeyPair kp;
 	Result r;
-	if ( (r = load_keys(client_id, kp)) != OK ) {
+	if ( (r = load_keys(client_id, kp)) != Result::OK ) {
 		return r;
 	}
 	randombytes_buf(payload_header.nonce, NONCE_SIZE);
 	crypto_secretbox_detached((uint8_t*)destination, payload_header.mac, (const uint8_t*)payload,
 		payload_header.payload_size, payload_header.nonce,
 		kp.transmisson_key.data());
-	return OK;
+	return Result::OK;
 }
 
 void ServerCrypto::sign_payload(const void *payload, PayloadHeader &header) {
@@ -169,9 +169,9 @@ ClientCrypto::Result ClientCrypto::decrypt_payload(const PayloadHeader &payload_
 	if ( crypto_secretbox_open_detached((uint8_t*)payload, (uint8_t*)payload,
 		payload_header.mac, payload_header.payload_size,
 		payload_header.nonce, client_rx.data()) != 0 ) {
-		return INVALID_PAYLOAD;
+		return Result::INVALID_PAYLOAD;
 	} else {
-		return OK;
+		return Result::OK;
 	}
 }
 
@@ -180,7 +180,7 @@ ClientCrypto::Result ClientCrypto::encrypt_payload(PayloadHeader &payload_header
 	crypto_secretbox_detached((uint8_t*)destination, payload_header.mac, (const uint8_t*)payload,
 		payload_header.payload_size, payload_header.nonce,
 		client_tx.data());
-	return OK;
+	return Result::OK;
 }
 
 void ClientCrypto::sign_payload(const void *payload, PayloadHeader &header) {

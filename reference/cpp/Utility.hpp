@@ -66,7 +66,7 @@ struct SessionKeyPair {
 
 class ServerCrypto {
 public:
-	enum Result {
+	enum class Result {
 		OK,
 		KEY_NOT_FOUND,
 		WRONG_CLIENT_KEY_SIZE,
@@ -89,7 +89,7 @@ public:
 
 class ClientCrypto {
 public:
-	enum Result {
+	enum class Result {
 		OK,
 		KEY_NOT_FOUND,
 		WRONG_CLIENT_KEY_SIZE,
