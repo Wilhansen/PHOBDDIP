@@ -191,6 +191,14 @@ int main(int argc, char **argv) {
                 cerr << "[WARNING] Sent " #Type " message size mismatch (actual: " << sent_size << ", expected: " << message.size() << ")" << endl; \
         } \
 } 
+
+#define GET_MESSAGE_ID	message_id_counter++
+#define GET_CURRENT_TIME new google::protobuf::Timestamp(google::protobuf::util::TimeUtil::GetCurrentTime())
+
+		obdi::Ping ping;
+		ping.set_message_id(GET_MESSAGE_ID);
+		ping.set_allocated_time_generated(GET_CURRENT_TIME);
+		SEND_USER_MESSAGE(obdi::Ping, prepare_message(ping, MessageType::PING));
 		while( getline(cin, command_buffer) ) {
 			if ( command_buffer.empty() ) {
 				continue;
@@ -252,6 +260,10 @@ int main(int argc, char **argv) {
 			}
 
 		}
+		ping.set_message_id(GET_MESSAGE_ID);
+		ping.set_allocated_time_generated(GET_CURRENT_TIME);
+		SEND_USER_MESSAGE(obdi::Ping, prepare_message(ping, MessageType::PING));
+
 		is_running = false;
 		dispatch_thread.join();
 
