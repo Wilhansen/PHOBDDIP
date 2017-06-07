@@ -221,7 +221,6 @@ int main(int argc, char **argv) {
 				int severity;
 				cin >> severity;
 				notice.set_severity((Severity)severity);
-				using namespace google::protobuf;
 				notice.set_allocated_time_generated(GET_CURRENT_TIME);
 
 				SEND_USER_MESSAGE(obdi::Notice, prepare_message(notice, MessageType::NOTICE));
@@ -229,14 +228,12 @@ int main(int argc, char **argv) {
 			if ( strcmp(command_buffer.c_str(), "ping") == 0 ) {
 				obdi::Ping ping;
 				ping.set_message_id(GET_MESSAGE_ID);
-				using namespace google::protobuf;
 				ping.set_allocated_time_generated(GET_CURRENT_TIME);
 
 				SEND_USER_MESSAGE(obdi::Ping, prepare_message(ping, MessageType::PING));
 			}
 			if ( strcmp(command_buffer.c_str(), "location update") == 0 ) {
 				obdi::LocationUpdate lu;
-				using namespace google::protobuf;
 				obdi::LocationUpdate::Entry* e = lu.add_entries();
 				e->set_allocated_ts(GET_CURRENT_TIME);
 				float longitude, latitude, bearing, speed;
