@@ -5,6 +5,8 @@
 #include <thread>
 #include <vector>
 #include <memory>
+#include <atomic>
+#include <map>
 
 #ifdef _WIN32
 	#include <winsock2.h>
@@ -52,6 +54,11 @@ vector<uint8_t> prepare_message(const M& m, const MessageType message_type, cons
 		data, send_data.data() + sizeof(ServerMessageHeader));
 	return send_data;
 }
+
+struct SocketAddressInfo {
+	sockaddr_storage store;
+	socklen_t length;
+};
 
 int main(int argc, char **argv) {
 #ifdef _WIN32
@@ -122,59 +129,96 @@ int main(int argc, char **argv) {
 
 		freeaddrinfo(service_info);
 
-		while ( true ) {
-			sockaddr_storage src_addr;
-			socklen_t src_addrlen = sizeof(src_addr);
-			uint8_t buffer[1024];
-			
-			const auto recvlen = recvfrom(main_socket, buffer, sizeof(buffer), 0, (sockaddr*)&src_addr, &src_addrlen);
-			if ( recvlen < 0 ) {
-				cerr << "[WARNING] Receive error: " << strerror(errno) << endl;
+		atomic<bool> is_running(true);
+		map<uint64_t, SocketAddressInfo> client_map;
+
+		thread dispatch_thread([&is_running, &client_map]() {
+			while ( is_running ) {
+				sockaddr_storage src_addr;
+				socklen_t src_addrlen = sizeof(src_addr);
+				uint8_t buffer[1024];
+				
+				const auto recvlen = recvfrom(main_socket, buffer, sizeof(buffer), 0, (sockaddr*)&src_addr, &src_addrlen);
+				if ( recvlen < 0 ) {
+					cerr << "[WARNING] Receive error: " << strerror(errno) << endl;
+					continue;
+				}
+				if (recvlen < sizeof(ClientMessageHeader) ) {
+					cerr << "[WARNING] Received data too small: " << recvlen << endl;
+					continue;
+				}
+
+				const auto client_header = reinterpret_cast<ClientMessageHeader*>(buffer);
+				
+				if ( memcmp(client_header->marker, marker_data, sizeof(marker_data)) != 0 ) {
+					cerr << "[WARNING] Client header marker mismatch." << endl;
+					continue;
+				}
+				if ( client_header->version != OBDI_VERSION ) {
+					cerr << "[WARNING] Client header version mismatch." << endl;
+					continue;
+				}
+				if ( client_header->payload_header.payload_size > recvlen - sizeof(*client_header) ) {
+					cerr << "[WARNING] Payload size field greater than packet size." << endl;
+					continue;
+				}
+				if ( server_crypto->decrypt_payload(client_header->vessel_id, client_header->payload_header, buffer + sizeof(*client_header)) != ServerCrypto::Result::OK ) {
+					obdi::CryptoError crypto_error;
+					crypto_error.set_details("Unable to decrypt payload.");
+
+					const auto &response_data = crypto_error.SerializeAsString();
+
+					vector<uint8_t> send_data(sizeof(ServerMessageHeader) + response_data.size());
+					memcpy(send_data.data() + sizeof(ServerMessageHeader), response_data.data(), response_data.size());
+
+					auto header = reinterpret_cast<ServerMessageHeader*>(send_data.data());
+					memcpy(header->marker, marker_data, sizeof(marker_data));
+					header->version = 0;
+					header->server_id = SERVER_ID;
+					header->message_type = MessageType::CRYPTO_ERROR;
+					header->payload_header.payload_size = response_data.size();
+
+					server_crypto->sign_payload(response_data.data(), header->payload_header);
+					sendto(main_socket, send_data.data(), send_data.size(), 0, (sockaddr*)&src_addr, src_addrlen);
+					continue;
+				}
+
+				client_map[client_header->vessel_id] = {src_addr, src_addrlen};
+				dispatch_message(client_header->vessel_id, src_addr, src_addrlen, client_header->message_type, buffer + sizeof(*client_header), client_header->payload_header.payload_size);
+			}
+		});
+		
+		string command_buffer;
+		while( getline(cin, command_buffer) ) {
+			if ( command_buffer.empty() ) {
 				continue;
 			}
-			if (recvlen < sizeof(ClientMessageHeader) ) {
-				cerr << "[WARNING] Received data too small: " << recvlen << endl;
-				continue;
+			if ( command_buffer[0] == 'q' ) {
+				break;
 			}
+			if ( strcmp(command_buffer.c_str(), "trip info update") == 0 ) {
+				int client_id, update_id;
+				cout << "Enter client id: ";
+				cin >> client_id;
+				cout << "Enter update id: ";
+				cin >> update_id;
+				string url;
+				cout << "Enter url: ";
+				cin >> url;
 
-			const auto client_header = reinterpret_cast<ClientMessageHeader*>(buffer);
-			
-			if ( memcmp(client_header->marker, marker_data, sizeof(marker_data)) != 0 ) {
-				cerr << "[WARNING] Client header marker mismatch." << endl;
-				continue;
+				obdi::TripInfoUpdate trip_info_update;
+				trip_info_update.set_update_id(update_id);
+				trip_info_update.set_allocated_url(new string(url));
+				using namespace google::protobuf;
+				trip_info_update.set_allocated_request_date(new Timestamp(util::TimeUtil::GetCurrentTime()));
+				const auto &message = prepare_message(trip_info_update, MessageType::TRIP_INFO_UPDATE, client_id);
+				SocketAddressInfo sai = client_map[client_id];
+				auto sent_size = sendto(main_socket, message.data(), message.size(), 0, (sockaddr*)&(sai.store), sai.length);
+				if ( sent_size != message.size() ) {
+					cerr << "[WARNING] Sent TripInfoUpdate message size mismatch (actual: " << sent_size << ", expected: " << message.size() << ")" << endl;
+				}
 			}
-			if ( client_header->version != OBDI_VERSION ) {
-				cerr << "[WARNING] Client header version mismatch." << endl;
-				continue;
-			}
-			if ( client_header->payload_header.payload_size > recvlen - sizeof(*client_header) ) {
-				cerr << "[WARNING] Payload size field greater than packet size." << endl;
-				continue;
-			}
-			if ( server_crypto->decrypt_payload(client_header->vessel_id, client_header->payload_header, buffer + sizeof(*client_header)) != ServerCrypto::Result::OK ) {
-				obdi::CryptoError crypto_error;
-				crypto_error.set_details("Unable to decrypt payload.");
-
-				const auto &response_data = crypto_error.SerializeAsString();
-
-				vector<uint8_t> send_data(sizeof(ServerMessageHeader) + response_data.size());
-				memcpy(send_data.data() + sizeof(ServerMessageHeader), response_data.data(), response_data.size());
-
-				auto header = reinterpret_cast<ServerMessageHeader*>(send_data.data());
-				memcpy(header->marker, marker_data, sizeof(marker_data));
-				header->version = 0;
-				header->server_id = SERVER_ID;
-				header->message_type = MessageType::CRYPTO_ERROR;
-				header->payload_header.payload_size = response_data.size();
-
-				server_crypto->sign_payload(response_data.data(), header->payload_header);
-				sendto(main_socket, send_data.data(), send_data.size(), 0, (sockaddr*)&src_addr, src_addrlen);
-				continue;
-			}
-
-			dispatch_message(client_header->vessel_id, src_addr, src_addrlen, client_header->message_type, buffer + sizeof(*client_header), client_header->payload_header.payload_size);
 		}
-
 		CLOSE_SOCKET(main_socket);
 	} catch ( const std::exception &e ) {
 		cerr << "[ERROR] " << e.what() << endl;
