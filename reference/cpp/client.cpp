@@ -298,19 +298,14 @@ void dispatch_message(const sockaddr_storage &address, const socklen_t address_l
 
 			cout << "Received from server: " << notice.DebugString() << endl;
 
-			obdi::NoticeResponse response;
+			obdi::Ack response;
 			response.set_message_id(notice.message_id());
 			using namespace google::protobuf;
-			response.set_allocated_notice_receive_time(new Timestamp(util::TimeUtil::GetCurrentTime()));
+			response.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
 			
-			const auto &send_data = prepare_message(response, MessageType::NOTICE_RESPONSE);
+			const auto &send_data = prepare_message(response, MessageType::ACK);
 			
-			SEND_MESSAGE(obdi::NoticeResponse, send_data);
-			break;
-		}
-		case MessageType::NOTICE_RESPONSE: {
-			PARSE_MESSAGE(obdi::NoticeResponse, notice_response);
-			cout << "Received from server: " << notice_response.DebugString() << endl;
+			SEND_MESSAGE(obdi::Ack, send_data);
 			break;
 		}
 		case MessageType::PING: {

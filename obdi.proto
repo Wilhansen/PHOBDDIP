@@ -35,11 +35,6 @@ message Notice {
 	string details = 4;
 }
 
-message NoticeResponse {
-	uint32 message_id = 1;
-	google.protobuf.Timestamp notice_receive_time = 2;
-}
-
 message Ping {
 	uint32 message_id = 1;
 	google.protobuf.Timestamp time_generated = 2;

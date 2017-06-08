@@ -1,5 +1,5 @@
 # OBD Data Interchange Protocol
-Updated: 2017.06.01
+Updated: 2017.06.08
 
 Author: Wilhansen Li
 <!--TOC-->
@@ -187,7 +187,7 @@ message Setting {
 ```
 
 #### [`0`] Notice*
-Response message: Notice Response
+Response message: Ack
 
 Notices are sent from server to client or client to server. The usual behavior of the client upon receiving a server notice is to display it on-screen.
 
@@ -197,16 +197,6 @@ message Notice {
 	Timestamp time_generated = 2;
 	Severity severity = 3;
 	string details = 4;
-}
-```
-
-#### [`1`] Notice Response
-Response to: Notice
-
-```protobuf
-message NoticeResponse {
-	uint32 message_id = 1;
-	Timestamp notice_receive_time = 2;
 }
 ```
 

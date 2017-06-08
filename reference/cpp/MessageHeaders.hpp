@@ -9,7 +9,6 @@
 
 enum class MessageType : uint8_t {
 	NOTICE = 0,
-	NOTICE_RESPONSE = 1,
 	PING = 2,
 	ACK = 3,
 

@@ -206,19 +206,14 @@ void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address,
 
 			cout << "Received from " << vessel_id << ": " << notice.DebugString() << endl;
 
-			obdi::NoticeResponse response;
+			obdi::Ack response;
 			response.set_message_id(notice.message_id());
 			using namespace google::protobuf;
-			response.set_allocated_notice_receive_time(new Timestamp(util::TimeUtil::GetCurrentTime()));
+			response.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
 			
-			const auto &send_data = prepare_message(response, MessageType::NOTICE_RESPONSE, vessel_id);
+			const auto &send_data = prepare_message(response, MessageType::ACK, vessel_id);
 			
-			SEND_MESSAGE(obdi::NoticeResponse, send_data);
-			break;
-		}
-		case MessageType::NOTICE_RESPONSE: {
-			PARSE_MESSAGE(obdi::NoticeResponse, notice_response);
-			cout << "Received from " << vessel_id << ": " << notice_response.DebugString() << endl;
+			SEND_MESSAGE(obdi::Ack, send_data);
 			break;
 		}
 		case MessageType::PING: {
