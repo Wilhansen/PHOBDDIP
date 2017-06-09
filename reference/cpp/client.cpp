@@ -248,7 +248,7 @@ int main(int argc, char **argv) {
 				obdi::LocationUpdate::Entry* e = lu.add_entries();
 				e->set_allocated_ts(GET_CURRENT_TIME);
 				float longitude, latitude, bearing, speed;
-				int current_load, status, current_trip_id;
+				int current_load, status, current_trip_id, stop;
 
 				cout << "Enter longitude: "; cin >> longitude;
 				cout << "Enter latitude: "; cin >> latitude;
@@ -257,6 +257,7 @@ int main(int argc, char **argv) {
 				cout << "Enter current load: "; cin >> current_load;
 				cout << "Enter status: "; cin >> status;
 				cout << "Enter trip ID: "; cin >> current_trip_id;
+				cout << "Enter stop: "; cin >> stop;
 
 				e->set_longitude(longitude);
 				e->set_latitude(latitude);
@@ -266,6 +267,7 @@ int main(int argc, char **argv) {
 				using namespace obdi;
 				e->set_status((VesselStatus)status);
 				e->set_current_trip_id(current_trip_id);
+				e->set_stop(stop);
 				cout << "size of entry: " << sizeof(e) << endl;		
 				SEND_USER_MESSAGE(obdi::LocationUpdate, prepare_message(lu, MessageType::LOCATION_UPDATE))
 			}
