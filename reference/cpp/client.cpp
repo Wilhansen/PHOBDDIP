@@ -34,10 +34,14 @@ std::unique_ptr<ClientCrypto> client_crypto;
 int main_socket;
 const uint8_t marker_data[4] = OBDI_MARKER_DATA;
 uint64_t client_id = 0;
+
+// Used to generate new message ids, incremented every time one is created
 uint32_t message_id_counter = 0;
 
+// Accepts a recieved message, and sends the appropriate response
 void dispatch_message(const sockaddr_storage &address, const socklen_t address_length, const MessageType message_type, const void *payload, const size_t payload_size);
 
+// Prepends the header to the Message object, then encrypts it
 template<typename M>
 vector<uint8_t> prepare_message(const M& m, const MessageType message_type) {
 	unsigned char data[m.ByteSize()];
@@ -199,6 +203,7 @@ int main(int argc, char **argv) {
 #define GET_CURRENT_TIME new google::protobuf::Timestamp(google::protobuf::util::TimeUtil::GetCurrentTime())
 
 		obdi::Ping ping;
+		// Ping the server upon connecting to it 
 		ping.set_message_id(GET_MESSAGE_ID);
 		ping.set_allocated_time_generated(GET_CURRENT_TIME);
 		SEND_USER_MESSAGE(obdi::Ping, prepare_message(ping, MessageType::PING));
@@ -209,6 +214,8 @@ int main(int argc, char **argv) {
 			if ( command_buffer[0] == 'q' ) {
 				break;
 			}
+
+			// Simulates sending a Notice message
 			if ( strcmp(command_buffer.c_str(), "notice") == 0 ) {
 				obdi::Notice notice;
 				notice.set_message_id(GET_MESSAGE_ID);
@@ -225,6 +232,8 @@ int main(int argc, char **argv) {
 
 				SEND_USER_MESSAGE(obdi::Notice, prepare_message(notice, MessageType::NOTICE));
 			}
+
+			// Simulates sending a Ping message
 			if ( strcmp(command_buffer.c_str(), "ping") == 0 ) {
 				obdi::Ping ping;
 				ping.set_message_id(GET_MESSAGE_ID);
@@ -232,6 +241,8 @@ int main(int argc, char **argv) {
 
 				SEND_USER_MESSAGE(obdi::Ping, prepare_message(ping, MessageType::PING));
 			}
+
+			// Simulates sending a LocationUpdate message
 			if ( strcmp(command_buffer.c_str(), "location update") == 0 ) {
 				obdi::LocationUpdate lu;
 				obdi::LocationUpdate::Entry* e = lu.add_entries();
@@ -255,11 +266,12 @@ int main(int argc, char **argv) {
 				using namespace obdi;
 				e->set_status((VesselStatus)status);
 				e->set_current_trip_id(current_trip_id);
-				
+				cout << "size of entry: " << sizeof(e) << endl;		
 				SEND_USER_MESSAGE(obdi::LocationUpdate, prepare_message(lu, MessageType::LOCATION_UPDATE))
 			}
 
 		}
+		// Ping the server when disconnecting from it
 		ping.set_message_id(GET_MESSAGE_ID);
 		ping.set_allocated_time_generated(GET_CURRENT_TIME);
 		SEND_USER_MESSAGE(obdi::Ping, prepare_message(ping, MessageType::PING));

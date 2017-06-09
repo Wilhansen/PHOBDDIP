@@ -35,10 +35,14 @@ std::unique_ptr<ServerCrypto> server_crypto;
 int main_socket;
 const uint8_t marker_data[4] = OBDI_MARKER_DATA;
 const uint32_t SERVER_ID = 0;
+
+// Used to generate new message ids, incremented every time one is created
 uint32_t message_id_counter = 0;
 
+// Accepts a recieved message, and sends the appropriate response
 void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address, const socklen_t address_length, const MessageType message_type, const void *payload, const size_t payload_size);
 
+// Prepends the header to the Message object, then encrypts it
 template<typename M>
 vector<uint8_t> prepare_message(const M& m, const MessageType message_type, const uint64_t vessel_id) {
 	unsigned char data[m.ByteSize()];
@@ -130,6 +134,8 @@ int main(int argc, char **argv) {
 		freeaddrinfo(service_info);
 
 		atomic<bool> is_running(true);
+
+		// Maps a client id to the corresponding socket address/length. Used to keep tracks of connected clients
 		map<uint64_t, SocketAddressInfo> client_map;
 
 		thread dispatch_thread([&is_running, &client_map]() {
@@ -188,6 +194,7 @@ int main(int argc, char **argv) {
 			}
 		});
 		
+		// Input loop for the command line interface of the server
 		string command_buffer;
 		while( getline(cin, command_buffer) ) {
 			if ( command_buffer.empty() ) {
@@ -196,6 +203,8 @@ int main(int argc, char **argv) {
 			if ( command_buffer[0] == 'q' ) {
 				break;
 			}
+
+			// Simulates sending a Trip Info Update to a specified client
 			if ( strcmp(command_buffer.c_str(), "trip info update") == 0 ) {
 				int client_id, update_id;
 				cout << "Enter client id: ";
