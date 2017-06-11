@@ -34,7 +34,6 @@ using namespace std;
 std::unique_ptr<ServerCrypto> server_crypto;
 int main_socket;
 const uint8_t marker_data[4] = OBDI_MARKER_DATA;
-const uint32_t SERVER_ID = 0;
 
 // Used to generate new message ids, incremented every time one is created
 uint32_t message_id_counter = 0;
@@ -51,11 +50,10 @@ vector<uint8_t> prepare_message(const M& m, const MessageType message_type, cons
 	vector<uint8_t> send_data(sizeof(ServerMessageHeader) + message_size);
 	auto header = reinterpret_cast<ServerMessageHeader*>(send_data.data());
 	memcpy(header->marker, marker_data, sizeof(marker_data));
-	header->version = 0;
+	header->version = OBDI_VERSION;
 	header->message_type = message_type;
-	header->server_id = SERVER_ID;
-	header->payload_header.payload_size = message_size;
-	server_crypto->encrypt_payload(vessel_id, header->payload_header,
+	header->payload_size = message_size;
+	server_crypto->encrypt_payload(vessel_id, *header,
 		&data[0], send_data.data() + sizeof(ServerMessageHeader));
 	return send_data;
 }
@@ -165,33 +163,32 @@ int main(int argc, char **argv) {
 					cerr << "[WARNING] Client header version mismatch." << endl;
 					continue;
 				}
-				if ( client_header->payload_header.payload_size > recvlen - sizeof(*client_header) ) {
+				if ( client_header->payload_size > recvlen - sizeof(*client_header) ) {
 					cerr << "[WARNING] Payload size field greater than packet size." << endl;
 					continue;
 				}
-				if ( server_crypto->decrypt_payload(client_header->vessel_id, client_header->payload_header, buffer + sizeof(*client_header)) != ServerCrypto::Result::OK ) {
+				if ( server_crypto->decrypt_payload(client_header->vessel_id, *client_header, buffer + sizeof(*client_header)) != ServerCrypto::Result::OK ) {
 					obdi::CryptoError crypto_error;
 					crypto_error.set_details("Unable to decrypt payload.");
 
 					const auto &response_data = crypto_error.SerializeAsString();
 
-					vector<uint8_t> send_data(sizeof(ServerMessageHeader) + response_data.size());
+					vector<uint8_t> send_data(sizeof(ServerMessageHeader) + response_data.size() + crypto_sign_BYTES);
 					memcpy(send_data.data() + sizeof(ServerMessageHeader), response_data.data(), response_data.size());
 
 					auto header = reinterpret_cast<ServerMessageHeader*>(send_data.data());
 					memcpy(header->marker, marker_data, sizeof(marker_data));
-					header->version = 0;
-					header->server_id = SERVER_ID;
+					header->version = OBDI_VERSION;
 					header->message_type = MessageType::CRYPTO_ERROR;
-					header->payload_header.payload_size = response_data.size();
+					header->payload_size = response_data.size();
 
-					server_crypto->sign_payload(response_data.data(), header->payload_header);
+					server_crypto->sign_payload(*header, send_data.data() + sizeof(ServerMessageHeader) + header->payload_size);
 					sendto(main_socket, send_data.data(), send_data.size(), 0, (sockaddr*)&src_addr, src_addrlen);
 					continue;
 				}
 
 				client_map[client_header->vessel_id] = {src_addr, src_addrlen};
-				dispatch_message(client_header->vessel_id, src_addr, src_addrlen, client_header->message_type, buffer + sizeof(*client_header), client_header->payload_header.payload_size);
+				dispatch_message(client_header->vessel_id, src_addr, src_addrlen, client_header->message_type, buffer + sizeof(*client_header), client_header->payload_size);
 			}
 		});
 		
@@ -234,7 +231,7 @@ int main(int argc, char **argv) {
 				string arg0;
 				if ( command == "help" && (command_input >> arg0) ) {
 					if ( arg0 == "tiu" ) {
-						cout << "tiu client_id update_id url\n";
+						cout << "tiu client_id update_id url\n"
 						"\tclient_id - the ID of the client you want to send the TripInfoUpdate to.\n"
 						"\tupdate_id - the ID of the update to send.\n"
 						"\turl - the URL you want the client to download.\n";

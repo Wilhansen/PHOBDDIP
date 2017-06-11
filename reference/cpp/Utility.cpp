@@ -3,8 +3,6 @@
 #include <stdexcept>
 #include <sstream>
 
-#include <sodium.h>
-
 using namespace std;
 
 SecureMemory::SecureMemory(size_t size) : m_size(size) {
@@ -96,37 +94,46 @@ ServerCrypto::Result ServerCrypto::load_keys(const uint64_t client_id, SessionKe
 	return Result::OK;
 }
 
-ServerCrypto::Result ServerCrypto::decrypt_payload(const uint64_t client_id, const PayloadHeader &payload_header, void *payload) {
+ServerCrypto::Result ServerCrypto::decrypt_payload(const uint64_t client_id, const ClientMessageHeader &header, void *payload) {
 	SessionKeyPair kp;
 	Result r;
 	if ( (r = load_keys(client_id, kp)) != Result::OK ) {
 		return r;
 	}
 
-	if ( crypto_secretbox_open_detached((uint8_t*)payload, (uint8_t*)payload,
-		payload_header.mac, payload_header.payload_size,
-		payload_header.nonce, kp.reception_key.data()) != 0 ) {
+	if ( crypto_aead_chacha20poly1305_ietf_decrypt_detached((uint8_t*)payload, NULL,
+		(uint8_t*)payload, header.payload_size,
+		header.payload_ad.mac,
+		(const uint8_t*)&header, sizeof(ClientMessageHeader) - sizeof(PayloadAuthenticationData),
+		header.payload_ad.nonce, kp.reception_key.data()) != 0 ) {
+		
 		return Result::INVALID_PAYLOAD;
 	} else {
 		return Result::OK;
 	}
 }
 
-ServerCrypto::Result ServerCrypto::encrypt_payload(const uint64_t client_id, PayloadHeader &payload_header, const void *payload, void *destination) {
+ServerCrypto::Result ServerCrypto::encrypt_payload(const uint64_t client_id, ServerMessageHeader &header, const void *payload, void *destination) {
 	SessionKeyPair kp;
 	Result r;
 	if ( (r = load_keys(client_id, kp)) != Result::OK ) {
 		return r;
 	}
-	randombytes_buf(payload_header.nonce, NONCE_SIZE);
-	crypto_secretbox_detached((uint8_t*)destination, payload_header.mac, (const uint8_t*)payload,
-		payload_header.payload_size, payload_header.nonce,
+	randombytes_buf(header.payload_ad.nonce, NONCE_SIZE);
+
+	crypto_aead_chacha20poly1305_ietf_encrypt_detached((uint8_t*)destination,
+		header.payload_ad.mac, NULL,
+		(const uint8_t*)payload, header.payload_size,
+		(const uint8_t*)&header, sizeof(ServerMessageHeader) - sizeof(PayloadAuthenticationData),
+		NULL, header.payload_ad.nonce,
 		kp.transmisson_key.data());
+
 	return Result::OK;
 }
 
-void ServerCrypto::sign_payload(const void *payload, PayloadHeader &header) {
-	crypto_sign_detached(header.signature, NULL,(const uint8_t*)payload, header.payload_size, sign_sk.data());
+void ServerCrypto::sign_payload(ServerMessageHeader &header_and_payload, uint8_t destination[crypto_sign_BYTES]) {
+	sodium_memzero(&header_and_payload.payload_ad, sizeof(header_and_payload.payload_ad));
+	crypto_sign_detached(destination, NULL, (const uint8_t*)&header_and_payload, sizeof(ServerMessageHeader) + header_and_payload.payload_size, sign_sk.data());
 }
 
 
@@ -147,6 +154,54 @@ client_id(client_id), client_rx(crypto_kx_SESSIONKEYBYTES), client_tx(crypto_kx_
 		throw runtime_error(string("Cannot open ") + sk_path);
 	}
 
+	derive_keys();
+}
+
+ClientCrypto::Result ClientCrypto::decrypt_payload(const ServerMessageHeader &header, void *payload) {
+	if ( crypto_aead_chacha20poly1305_ietf_decrypt_detached((uint8_t*)payload, NULL,
+		(uint8_t*)payload, header.payload_size,
+		header.payload_ad.mac,
+		(const uint8_t*)&header, sizeof(ServerMessageHeader) - sizeof(PayloadAuthenticationData),
+		header.payload_ad.nonce, client_rx.data()) != 0 ) {
+		
+		return Result::INVALID_PAYLOAD;
+	} else {
+		return Result::OK;
+	}
+}
+
+ClientCrypto::Result ClientCrypto::encrypt_payload(ClientMessageHeader &header, const void *payload, void *destination) {
+	randombytes_buf(header.payload_ad.nonce, NONCE_SIZE);
+	
+	crypto_aead_chacha20poly1305_ietf_encrypt_detached((uint8_t*)destination,
+		header.payload_ad.mac, NULL,
+		(const uint8_t*)payload, header.payload_size,
+		(const uint8_t*)&header, sizeof(ClientMessageHeader) - sizeof(PayloadAuthenticationData),
+		NULL, header.payload_ad.nonce,
+		client_tx.data());
+
+	return Result::OK;
+}
+
+void ClientCrypto::sign_payload(ClientMessageHeader &header, uint8_t destination[crypto_sign_BYTES]) {
+	sodium_memzero(&header.payload_ad, sizeof(header.payload_ad));
+	crypto_sign_detached(destination, NULL, (const uint8_t*)&header, sizeof(ClientMessageHeader) + header.payload_size, sign_sk.data());
+}
+
+bool ClientCrypto::verify_signed_server_payload(const ServerMessageHeader &header, const uint8_t signature[crypto_sign_BYTES]) {
+	const PayloadAuthenticationData zero = { 0 };
+	if ( memcmp(&zero, &header.payload_ad, sizeof(PayloadAuthenticationData)) != 0 ) {
+		return false;
+	}
+	return crypto_sign_verify_detached(signature, (const uint8_t*)&header, sizeof(ServerMessageHeader) + header.payload_size, server_sign_pk.data()) == 0;
+}
+
+void ClientCrypto::replace_server_key(const std::vector<uint8_t> &server_sign_pk) {
+	this->server_sign_pk = server_sign_pk;
+	derive_keys();
+}
+
+void ClientCrypto::derive_keys() {
 	vector<uint8_t> client_pk(crypto_kx_PUBLICKEYBYTES),
 					server_pk(crypto_kx_PUBLICKEYBYTES);
 	SecureMemory client_sk(crypto_kx_SECRETKEYBYTES);
@@ -162,31 +217,5 @@ client_id(client_id), client_rx(crypto_kx_SESSIONKEYBYTES), client_tx(crypto_kx_
 		throw runtime_error("Invalid server public key provided.");
 	}
 
-	crypto_kx_client_session_keys(client_rx.data(), client_tx.data(), client_pk.data(), client_sk.data(), server_pk.data());
-}
-
-ClientCrypto::Result ClientCrypto::decrypt_payload(const PayloadHeader &payload_header, void *payload) {
-	if ( crypto_secretbox_open_detached((uint8_t*)payload, (uint8_t*)payload,
-		payload_header.mac, payload_header.payload_size,
-		payload_header.nonce, client_rx.data()) != 0 ) {
-		return Result::INVALID_PAYLOAD;
-	} else {
-		return Result::OK;
-	}
-}
-
-ClientCrypto::Result ClientCrypto::encrypt_payload(PayloadHeader &payload_header, const void *payload, void *destination) {
-	randombytes_buf(payload_header.nonce, NONCE_SIZE);
-	crypto_secretbox_detached((uint8_t*)destination, payload_header.mac, (const uint8_t*)payload,
-		payload_header.payload_size, payload_header.nonce,
-		client_tx.data());
-	return Result::OK;
-}
-
-void ClientCrypto::sign_payload(const void *payload, PayloadHeader &header) {
-	crypto_sign_detached(header.signature, NULL,(const uint8_t*)payload, header.payload_size, sign_sk.data());
-}
-
-bool ClientCrypto::verify_signed_server_payload(const void *payload, const PayloadHeader &header) {
-	return crypto_sign_verify_detached(header.signature, (const uint8_t*)payload, header.payload_size, server_sign_pk.data()) == 0;
+	crypto_kx_client_session_keys(client_rx.data(), client_tx.data(), client_pk.data(), client_sk.data(), server_pk.data());	
 }

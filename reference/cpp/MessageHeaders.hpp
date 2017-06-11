@@ -2,10 +2,8 @@
 #define MESSAGEHEADERS_HPP
 #include <stdint.h>
 
-#define NONCE_SIZE 24 //crypto_secretbox_NONCEBYTES
-#define MAC_SIZE 16 //crypto_secretbox_MACBYTES
-#define RESERVE_SIZE 24
-#define SIGNATURE_SIZE 64
+#define NONCE_SIZE 12 //crypto_aead_chacha20poly1305_ietf_NPUBBYTES
+#define MAC_SIZE 16 //crypto_aead_chacha20poly1305_ietf_ABYTES
 
 enum class MessageType : uint8_t {
 	NOTICE = 0,
@@ -24,33 +22,26 @@ enum class MessageType : uint8_t {
 };
 
 #pragma pack(push, 1)
-struct PayloadHeader {
-	uint16_t payload_size;
-	union {
-		struct {
-			uint8_t nonce[NONCE_SIZE];
-			uint8_t mac[MAC_SIZE];
-			uint8_t reserved[RESERVE_SIZE];
-		};
-		uint8_t signature[SIGNATURE_SIZE];
-	};
+struct PayloadAuthenticationData {
+	uint8_t nonce[NONCE_SIZE];
+	uint8_t mac[MAC_SIZE];
 };
 
 struct ClientMessageHeader {
 	uint8_t marker[4];
 	uint8_t version;
 	MessageType message_type;
-	uint32_t server_id;
+	uint16_t payload_size;
 	uint64_t vessel_id;
-	PayloadHeader payload_header;
+	PayloadAuthenticationData payload_ad;
 };
 
 struct ServerMessageHeader {
 	uint8_t marker[4];
 	uint8_t version;
+	uint16_t payload_size;
 	MessageType message_type;
-	uint32_t server_id;
-	PayloadHeader payload_header;
+	PayloadAuthenticationData payload_ad;
 };
 #pragma pack(pop)
 

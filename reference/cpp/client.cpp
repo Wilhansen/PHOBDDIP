@@ -53,10 +53,10 @@ vector<uint8_t> prepare_message(const M& m, const MessageType message_type) {
 	auto header = reinterpret_cast<ClientMessageHeader*>(send_data.data());
 	memcpy(header->marker, marker_data, sizeof(marker_data));
 	header->vessel_id = client_id;
-	header->version = 0;
+	header->version = OBDI_VERSION;
 	header->message_type = message_type;
-	header->payload_header.payload_size = message_size;
-	client_crypto->encrypt_payload(header->payload_header,
+	header->payload_size = message_size;
+	client_crypto->encrypt_payload(*header,
 		&data[0], send_data.data() + sizeof(ClientMessageHeader));
 	return send_data;
 }
@@ -172,31 +172,41 @@ int main(int argc, char **argv) {
 					continue;
 				}
 
-				const auto client_header = reinterpret_cast<ServerMessageHeader*>(buffer);
+				const auto server_header = reinterpret_cast<ServerMessageHeader*>(buffer);
 				
-				if ( memcmp(client_header->marker, marker_data, sizeof(marker_data)) != 0 ) {
+				if ( memcmp(server_header->marker, marker_data, sizeof(marker_data)) != 0 ) {
 					cerr << "[WARNING] Client header marker mismatch.\n";
 					continue;
 				}
-				if ( client_header->version != OBDI_VERSION ) {
+				if ( server_header->version != OBDI_VERSION ) {
 					cerr << "[WARNING] Client header version mismatch.\n";
 					continue;
 				}
-				if ( client_header->payload_header.payload_size > recvlen - sizeof(*client_header) ) {
+				if ( server_header->payload_size > recvlen - sizeof(*server_header) ) {
 					cerr << "[WARNING] Payload size field greater than packet size.\n";
 					continue;
 				}
-				if ( client_header->message_type == MessageType::CRYPTO_ERROR ) {
-					if ( !client_crypto->verify_signed_server_payload(buffer + sizeof(*client_header), client_header->payload_header) ) {
+				if ( server_header->message_type == MessageType::CRYPTO_ERROR ) {
+					if ( sizeof(ServerMessageHeader) + server_header->payload_size + crypto_sign_BYTES > recvlen ) {
+						cerr << "[WARNING] Unencrypted server payload has no signature.\n";
+						continue;
+					}
+					if ( !client_crypto->verify_signed_server_payload(*server_header, buffer + sizeof(ServerMessageHeader) + server_header->payload_size ) ) {
 						cerr << "[WARNING] Signed server payload verification failed.\n";
 						continue;
 					}
-				} else if ( client_crypto->decrypt_payload(client_header->payload_header, buffer + sizeof(*client_header)) != ClientCrypto::Result::OK ) {
+					obdi::CryptoError ce;
+					if (!ce.ParseFromArray(buffer + sizeof(ServerMessageHeader), server_header->payload_size)) {
+						cerr << "[WARNING] Unable to parse CryptoError message.\n";
+						continue;	
+					}
+					cout << "Got Server CryptoError message: " << ce.DebugString();
+				} else if ( client_crypto->decrypt_payload(*server_header, buffer + sizeof(*server_header)) != ClientCrypto::Result::OK ) {
 					cerr << "[WARNING] Unable to decrypt server payload.\n";
 					continue;
 				}
 
-				dispatch_message(src_addr, src_addrlen, client_header->message_type, buffer + sizeof(*client_header), client_header->payload_header.payload_size);
+				dispatch_message(src_addr, src_addrlen, server_header->message_type, buffer + sizeof(*server_header), server_header->payload_size);
 			}
 		});
 		

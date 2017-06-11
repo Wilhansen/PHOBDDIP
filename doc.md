@@ -1,5 +1,5 @@
 # OBD Data Interchange Protocol
-Updated: 2017.06.08
+Updated: 2017.06.11
 
 Author: Wilhansen Li
 <!--TOC-->
@@ -31,9 +31,9 @@ The key exchange is done upon the registration of the device prior to usage.
 
 ## Message Protocol
 
-Message payload between client and server is in protobuf3 binary format with a header describing the payload.
+Message payload between client and server is in protobuf3 binary format with a header describing the payload which is encoded in binary protobuf3.
 
-All payloads are protobuf3-encoded decryptable using the reception key from the Key Exchange Algorithm with the `crypto_secretbox_*` method in libsodium.
+Authenticated Encryption with Additional Data (AEAD) construction, IETF ChaCha20-Poly1305 in particular, is used on the entire message. The payload is encrypted while the rest of the header (except for the authentication data) is treated as additional data that's authenticated.
 
 ### Client to Server
 All messages from client to server are prepended with the following header:
@@ -42,17 +42,17 @@ struct ClientMessageHeader {
 	uint8_t marker[4];
 	uint8_t version;
 	MessageType message_type;
-	uint32_t server_id;
+	uint16_t payload_size;
 	uint64_t vessel_id;
-	PayloadHeader payload_header;
+	PayloadAuthenticationData payload_ad;
 };
 ```
 
 * `marker` — Always set to the string "OBDI".
 * `version` — currently at 0.
-* `server_id` — 4-byte ID of the server.
 * `vessel_id` — 8-byte ID of the vessel.
 * `message_type` — Message type ID, see "Messages" for the list of possible messages.
+* `payload_size` — size of the payload data, in bytes. When parsing, make sure that this is less than  `total_packet_size - `total_header_size`.
 
 ### Server to Client
 All messages from server to client are prepended with the following header:
@@ -60,42 +60,31 @@ All messages from server to client are prepended with the following header:
 struct ServerMessageHeader {
 	uint8_t marker[4];
 	uint8_t version;
+	uint16_t payload_size;
 	MessageType message_type;
-	uint32_t server_id;
-	PayloadHeader payload_header;
+	PayloadAuthenticationData payload_ad;
 };
 ```
 
 * `marker` — Always set to the string "OBDI".
 * `version` — currently at 0.
+* `payload_size` — size of the payload data, in bytes. When parsing, make sure that this is less than  `total_packet_size - `total_header_size`.
 * `message_type` — Message type ID, see "Messages" for the list of possible messages. Server responses start with 50 onwards.
-* `server_id` — 4-byte ID of the server.
 
 ### Payload Header
 The `payload_header` is as follows:
 ```
-#define NONCE_SIZE 24 // = crypto_secretbox_NONCEBYTES
-#define MAC_SIZE 16 // = crypto_secretbox_MACBYTES
-#define RESERVE_SIZE 24
-#define SIGNATURE_SIZE 64 // = crypto_sign_BYTES
+#define NONCE_SIZE 12 //crypto_aead_chacha20poly1305_ietf_NPUBBYTES
+#define MAC_SIZE 16 //crypto_aead_chacha20poly1305_ietf_ABYTES
 
-struct PayloadHeader {
-	uint16_t payload_size;
-	union {
-		struct {
-			uint8_t nonce[NONCE_SIZE];
-			uint8_t mac[MAC_SIZE];
-			uint8_t reserved[RESERVE_SIZE];
-		};
-		uint8_t signature[SIGNATURE_SIZE];
-	};
+struct PayloadAuthenticationData {
+	uint8_t nonce[NONCE_SIZE];
+	uint8_t mac[MAC_SIZE];
 };
 ```
 
-* `payload_size` — size of the payload data, in bytes. When parsing, make sure that this is less than  `total_packet_size - `total_header_size`.
 * `nonce` — Nonce used for encryption/decryption, when generating messages, fill this with random data.
 * `mac` — MAC used to verify whether the decrypted data is correct.
-* `signature` — Used if the payload is unencrypted. This contains the signature of the message that can be verified using the originator's public signing key (use `crypto_sign_*` functions).
 
 ## Messages
 Numbers in square brackets are the message type IDs.
@@ -231,7 +220,12 @@ message Ack {
 * `time_generated` — time the Ack message is generated.
 
 ### Unencrypted Messages
-These messages have payloads that are unencrypted but signed using `crypto_sign*`. The `nonce`, `mac`, and `reserved` entries in the payload header form the message signature.
+These messages have payloads that are unencrypted but signed using `crypto_sign*`. For these messages, the following should be noted:
+
+1. The `nonce` and `mac` should both be zero.
+2. The signature is appended at the end of the payload.
+3. The `payload_size` value in the header does not include the signature.
+
 
 #### [`10`] Crypto Error
 Sent whenever there's a cryptography-related error that occurred, usually due to wrong keys or tampering of data.
@@ -257,13 +251,11 @@ message ModifyServerKeys {
 	uint32 message_id = 1;
 	Timestamp time_issued = 2;
 	Operation operation = 3;
-	uint32 server_id = 4;
 	bytes public_key = 5;
 }
 ```
 
 * `time_issued` — time the server key modification happened. This is NOT when the packet is sent. This field should be used to order the modification events.
-* `server_id` — server of the key to modify.
 
 ### Client Messages
 #### [`20`] Location Update

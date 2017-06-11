@@ -6,6 +6,7 @@
 #include <vector>
 #include <cstdio>
 
+#include <sodium.h>
 #include <stdint.h>
 
 #include "MessageHeaders.hpp"
@@ -82,9 +83,9 @@ private:
 	Result load_keys(const uint64_t client_id, SessionKeyPair &dst);
 public:
 	ServerCrypto(const char *keydir);
-	Result decrypt_payload(const uint64_t client_id, const PayloadHeader &payload_header, void *payload);
-	Result encrypt_payload(const uint64_t client_id, PayloadHeader &payload_header, const void *payload, void *destination);
-	void sign_payload(const void *payload, PayloadHeader &header);
+	Result decrypt_payload(const uint64_t client_id, const ClientMessageHeader &payload_header, void *payload);
+	Result encrypt_payload(const uint64_t client_id, ServerMessageHeader &payload_header, const void *payload, void *destination);
+	void sign_payload(ServerMessageHeader &header, uint8_t destination[crypto_sign_BYTES]);
 };
 
 class ClientCrypto {
@@ -101,12 +102,14 @@ private:
 	SecureMemory client_rx, client_tx, sign_sk;
 	const uint64_t client_id;
 	
+	void derive_keys();
 public:
 	ClientCrypto(const uint64_t client_id, const char *pk_path, const char *sk_path, const char *server_key_path);
-	Result decrypt_payload(const PayloadHeader &payload_header, void *payload);
-	Result encrypt_payload(PayloadHeader &payload_header, const void *payload, void *destination);
-	void sign_payload(const void *payload, PayloadHeader &header);
-	bool verify_signed_server_payload(const void *payload, const PayloadHeader &header);
+	Result decrypt_payload(const ServerMessageHeader &payload_header, void *payload);
+	Result encrypt_payload(ClientMessageHeader &payload_header, const void *payload, void *destination);
+	void sign_payload(ClientMessageHeader &header, uint8_t destination[crypto_sign_BYTES]);
+	bool verify_signed_server_payload(const ServerMessageHeader &header, const uint8_t signature[crypto_sign_BYTES]);
+	void replace_server_key(const std::vector<uint8_t> &server_sign_pk);
 };
 
 #endif
