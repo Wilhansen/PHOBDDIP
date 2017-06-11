@@ -62,6 +62,19 @@ struct SessionKeyPair {
 	SecureMemory reception_key, transmisson_key;
 };
 
+struct NonceGenerator {
+	uint64_t counter = 0;
+	struct NonceStruct {
+		uint8_t rng[crypto_aead_chacha20poly1305_ietf_NPUBBYTES - sizeof(uint64_t)];
+		uint64_t counter;
+	};
+	void next(uint8_t nonce[crypto_aead_chacha20poly1305_ietf_NPUBBYTES]) {
+		auto n = reinterpret_cast<NonceStruct*>(nonce);
+		randombytes_buf(&(n->rng), sizeof(n->rng));
+		n->counter = counter++;
+	}
+};
+
 #define SERVER_PRIVATE_KEY_FILE "server.key"
 #define SERVER_PUBLIC_KEY_FILE "server.pub"
 
@@ -78,7 +91,7 @@ private:
 	std::string m_keydir;
 	std::vector<uint8_t> server_pk, sign_pk;
 	SecureMemory server_sk, sign_sk;
-	
+	NonceGenerator ng;
 	
 	Result load_keys(const uint64_t client_id, SessionKeyPair &dst);
 public:
@@ -100,6 +113,7 @@ public:
 private:
 	std::vector<uint8_t> sign_pk, server_sign_pk;
 	SecureMemory client_rx, client_tx, sign_sk;
+	NonceGenerator ng;
 	const uint64_t client_id;
 	
 	void derive_keys();
