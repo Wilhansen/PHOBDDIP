@@ -197,24 +197,27 @@ int main(int argc, char **argv) {
 		
 		// Input loop for the command line interface of the server
 		string command_buffer;
-		while( getline(cin, command_buffer) ) {
+		while( true ) {
+			cout << "server > ";
+			if( !getline(cin, command_buffer) ) {
+				break;
+			}
 			if ( command_buffer.empty() ) {
 				continue;
 			}
-			if ( command_buffer[0] == 'q' ) {
-				break;
-			}
 
-			// Simulates sending a Trip Info Update to a specified client
-			if ( strcmp(command_buffer.c_str(), "trip info update") == 0 ) {
+			istringstream command_input(command_buffer);
+			string command;
+			command_input >> command;
+			if( command == "q" ) {
+				break;
+			} else if ( command == "tiu" ) {
 				int client_id, update_id;
-				cout << "Enter client id: ";
-				cin >> client_id;
-				cout << "Enter update id: ";
-				cin >> update_id;
 				string url;
-				cout << "Enter url: ";
-				cin >> url;
+				if ( !(command_input >> client_id >> update_id >> url) ) {
+					cout << "Invalid arguments. Type \"help tiu\" for more information.\n";
+					continue;
+				}
 
 				obdi::TripInfoUpdate trip_info_update;
 				trip_info_update.set_update_id(update_id);
@@ -227,6 +230,21 @@ int main(int argc, char **argv) {
 				if ( sent_size != message.size() ) {
 					cerr << "[WARNING] Sent TripInfoUpdate message size mismatch (actual: " << sent_size << ", expected: " << message.size() << ")" << endl;
 				}
+			} else {
+				string arg0;
+				if ( command == "help" && (command_input >> arg0) ) {
+					if ( arg0 == "tiu" ) {
+						cout << "tiu client_id update_id url\n";
+						"\tclient_id - the ID of the client you want to send the TripInfoUpdate to.\n"
+						"\tupdate_id - the ID of the update to send.\n"
+						"\turl - the URL you want the client to download.\n";
+						continue;
+					}
+				}
+				cout << "List of commands:\n"
+						"\ttiu - Sends a TripInfoUpdate.\n"
+						"\tq - Quits the server.\n"
+						"\thelp - Print commands and command information.\n";
 			}
 		}
 		CLOSE_SOCKET(main_socket);
