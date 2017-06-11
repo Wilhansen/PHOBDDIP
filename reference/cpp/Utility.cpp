@@ -119,7 +119,7 @@ ServerCrypto::Result ServerCrypto::encrypt_payload(const uint64_t client_id, Ser
 	if ( (r = load_keys(client_id, kp)) != Result::OK ) {
 		return r;
 	}
-	randombytes_buf(header.payload_ad.nonce, NONCE_SIZE);
+	ng.next(header.payload_ad.nonce);
 
 	crypto_aead_chacha20poly1305_ietf_encrypt_detached((uint8_t*)destination,
 		header.payload_ad.mac, NULL,
@@ -171,7 +171,7 @@ ClientCrypto::Result ClientCrypto::decrypt_payload(const ServerMessageHeader &he
 }
 
 ClientCrypto::Result ClientCrypto::encrypt_payload(ClientMessageHeader &header, const void *payload, void *destination) {
-	randombytes_buf(header.payload_ad.nonce, NONCE_SIZE);
+	ng.next(header.payload_ad.nonce);
 	
 	crypto_aead_chacha20poly1305_ietf_encrypt_detached((uint8_t*)destination,
 		header.payload_ad.mac, NULL,
