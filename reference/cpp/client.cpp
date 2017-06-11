@@ -46,17 +46,18 @@ void dispatch_message(const sockaddr_storage &address, const socklen_t address_l
 // Prepends the header to the Message object, then encrypts it
 template<typename M>
 vector<uint8_t> prepare_message(const M& m, const MessageType message_type) {
-	unsigned char data[m.ByteSize()];
-	m.SerializeToArray(data, m.ByteSize());
-	vector<uint8_t> send_data(sizeof(ClientMessageHeader) + m.ByteSize());
+	size_t message_size = m.ByteSizeLong();
+	vector<char> data(message_size);
+	m.SerializeToArray(&data[0], message_size);
+	vector<uint8_t> send_data(sizeof(ClientMessageHeader) + message_size);
 	auto header = reinterpret_cast<ClientMessageHeader*>(send_data.data());
 	memcpy(header->marker, marker_data, sizeof(marker_data));
 	header->vessel_id = client_id;
 	header->version = 0;
 	header->message_type = message_type;
-	header->payload_header.payload_size = m.ByteSize();
+	header->payload_header.payload_size = message_size;
 	client_crypto->encrypt_payload(header->payload_header,
-		data, send_data.data() + sizeof(ClientMessageHeader));
+		&data[0], send_data.data() + sizeof(ClientMessageHeader));
 	return send_data;
 }
 
@@ -230,7 +231,7 @@ int main(int argc, char **argv) {
 			istringstream command_input(command_buffer);
 			string command;
 			command_input >> command;
-
+			cout << command_buffer << endl;
 			if ( command == "q") {
 				break;
 			} else if ( command == "notice" ) {

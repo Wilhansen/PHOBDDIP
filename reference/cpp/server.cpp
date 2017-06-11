@@ -45,17 +45,18 @@ void dispatch_message(const uint64_t vessel_id, const sockaddr_storage &address,
 // Prepends the header to the Message object, then encrypts it
 template<typename M>
 vector<uint8_t> prepare_message(const M& m, const MessageType message_type, const uint64_t vessel_id) {
-	unsigned char data[m.ByteSize()];
-	m.SerializeToArray(data, m.ByteSize());
-	vector<uint8_t> send_data(sizeof(ServerMessageHeader) + m.ByteSize());
+	size_t message_size = m.ByteSizeLong();
+	vector<char> data(message_size);
+	m.SerializeToArray(&data[0], message_size);
+	vector<uint8_t> send_data(sizeof(ServerMessageHeader) + message_size);
 	auto header = reinterpret_cast<ServerMessageHeader*>(send_data.data());
 	memcpy(header->marker, marker_data, sizeof(marker_data));
 	header->version = 0;
 	header->message_type = message_type;
 	header->server_id = SERVER_ID;
-	header->payload_header.payload_size = m.ByteSize();
+	header->payload_header.payload_size = message_size;
 	server_crypto->encrypt_payload(vessel_id, header->payload_header,
-		data, send_data.data() + sizeof(ServerMessageHeader));
+		&data[0], send_data.data() + sizeof(ServerMessageHeader));
 	return send_data;
 }
 
