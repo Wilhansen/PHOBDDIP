@@ -7,6 +7,7 @@
 #include <memory>
 #include <atomic>
 #include <iomanip>
+#include <sstream>
 
 #ifdef _WIN32
 	#include <winsock2.h>
