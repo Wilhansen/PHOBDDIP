@@ -231,7 +231,6 @@ int main(int argc, char **argv) {
 			istringstream command_input(command_buffer);
 			string command;
 			command_input >> command;
-			cout << command_buffer << endl;
 			if ( command == "q") {
 				break;
 			} else if ( command == "notice" ) {
@@ -269,7 +268,7 @@ int main(int argc, char **argv) {
 					longitude >> latitude >>
 					bearing >> speed >>
 					current_load >> status >> current_trip_id >> stop ) ) {
-					cout << "Invalid arguments. Type \"help notice\" for more information.\n";
+					cout << "Invalid arguments. Type \"help lu\" for more information.\n";
 					continue;
 				}
 				if ( !(obdi::VesselStatus_MIN <= status && status <= obdi::VesselStatus_MAX) ) {
