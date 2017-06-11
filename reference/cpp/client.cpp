@@ -6,6 +6,7 @@
 #include <vector>
 #include <memory>
 #include <atomic>
+#include <iomanip>
 
 #ifdef _WIN32
 	#include <winsock2.h>
@@ -147,14 +148,21 @@ int main(int argc, char **argv) {
 		atomic<bool> is_running(true);
 
 		thread dispatch_thread([&is_running](){
+			{
+				struct timeval timeout = { 3, 0 };
+				setsockopt(main_socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));	
+			}
 			while ( is_running ) {
 				sockaddr_storage src_addr;
 				socklen_t src_addrlen = sizeof(src_addr);
 				uint8_t buffer[1024];
 				
 				const auto recvlen = recvfrom(main_socket, buffer, sizeof(buffer), 0, (sockaddr*)&src_addr, &src_addrlen);
+
 				if ( recvlen < 0 ) {
-					cerr << "[WARNING] Receive error: " << strerror(errno) << endl;
+					if ( errno != EAGAIN ) {
+						cerr << "[WARNING] Receive error: " << strerror(errno) << endl;
+					}
 					continue;
 				}
 				if (recvlen < sizeof(ServerMessageHeader) ) {
@@ -207,57 +215,69 @@ int main(int argc, char **argv) {
 		ping.set_message_id(GET_MESSAGE_ID);
 		ping.set_allocated_time_generated(GET_CURRENT_TIME);
 		SEND_USER_MESSAGE(obdi::Ping, prepare_message(ping, MessageType::PING));
-		while( getline(cin, command_buffer) ) {
-			if ( command_buffer.empty() ) {
-				continue;
-			}
-			if ( command_buffer[0] == 'q' ) {
+
+		cout << "Enter \"help\" to see list of commands.\n";
+		while( true ) {
+			cout << "client:" << client_id << "> ";
+			if ( !getline(cin, command_buffer) ) {
 				break;
 			}
 
-			// Simulates sending a Notice message
-			if ( strcmp(command_buffer.c_str(), "notice") == 0 ) {
+			if ( command_buffer.empty() ) {
+				continue;
+			}
+			istringstream command_input(command_buffer);
+			string command;
+			command_input >> command;
+
+			if ( command == "q") {
+				break;
+			} else if ( command == "notice" ) {
+				string notice_message;
+				int severity;
+				if ( !(command_input >> quoted(notice_message) >> severity) ) {
+					cout << "Invalid arguments. Type \"help notice\" for more information.\n";
+					continue;
+				}
+				if ( !(obdi::Severity_MIN <= severity && severity <= obdi::Severity_MAX) ) {
+					cout << "Invalid severity level.\n";
+					continue;
+				}
+				// Simulates sending a Notice message
 				obdi::Notice notice;
 				notice.set_message_id(GET_MESSAGE_ID);
-				string notice_message;
-				cout << "Enter notice message: ";
-				getline(cin, notice_message);
+				
 				notice.set_details(notice_message);
 				using namespace obdi;
-				cout << "Enter severity: ";
-				int severity;
-				cin >> severity;
 				notice.set_severity((Severity)severity);
 				notice.set_allocated_time_generated(GET_CURRENT_TIME);
 
 				SEND_USER_MESSAGE(obdi::Notice, prepare_message(notice, MessageType::NOTICE));
-			}
-
-			// Simulates sending a Ping message
-			if ( strcmp(command_buffer.c_str(), "ping") == 0 ) {
+			} else if ( command == "ping" ) {
+				// Simulates sending a Ping message
 				obdi::Ping ping;
 				ping.set_message_id(GET_MESSAGE_ID);
 				ping.set_allocated_time_generated(GET_CURRENT_TIME);
 
 				SEND_USER_MESSAGE(obdi::Ping, prepare_message(ping, MessageType::PING));
-			}
-
-			// Simulates sending a LocationUpdate message
-			if ( strcmp(command_buffer.c_str(), "location update") == 0 ) {
+			} else if ( command == "lu" ) {
+				float longitude, latitude, bearing, speed;
+				int current_load, status, current_trip_id, stop;
+				if ( !(command_input >> 
+					longitude >> latitude >>
+					bearing >> speed >>
+					current_load >> status >> current_trip_id >> stop ) ) {
+					cout << "Invalid arguments. Type \"help notice\" for more information.\n";
+					continue;
+				}
+				if ( !(obdi::VesselStatus_MIN <= status && status <= obdi::VesselStatus_MAX) ) {
+					cout << "Invalid vessel status.\n";
+					continue;
+				}
+				// Simulates sending a LocationUpdate message
 				obdi::LocationUpdate lu;
 				obdi::LocationUpdate::Entry* e = lu.add_entries();
 				e->set_allocated_ts(GET_CURRENT_TIME);
-				float longitude, latitude, bearing, speed;
-				int current_load, status, current_trip_id, stop;
-
-				cout << "Enter longitude: "; cin >> longitude;
-				cout << "Enter latitude: "; cin >> latitude;
-				cout << "Enter bearing: "; cin >> bearing;
-				cout << "Enter speed: "; cin >> speed;
-				cout << "Enter current load: "; cin >> current_load;
-				cout << "Enter status: "; cin >> status;
-				cout << "Enter trip ID: "; cin >> current_trip_id;
-				cout << "Enter stop: "; cin >> stop;
 
 				e->set_longitude(longitude);
 				e->set_latitude(latitude);
@@ -270,6 +290,25 @@ int main(int argc, char **argv) {
 				e->set_stop(stop);
 				cout << "size of entry: " << sizeof(e) << endl;		
 				SEND_USER_MESSAGE(obdi::LocationUpdate, prepare_message(lu, MessageType::LOCATION_UPDATE))
+			} else {
+				string arg0;
+				if ( command == "help" && (command_input >> arg0) ) {
+					if ( arg0 == "notice" ) {
+						cout << "notice \"message\" severity\n"
+						"\tmessage — String to send, use quotes if the message contains spaces.\n"
+						"\tseverity — Integer from 0 to 6 stating the severity associated with the message. See OBDI documentation for severity details.\n";
+						continue;
+					} else if ( arg0 == "lu" ) {
+						cout << "lu longitude latitude bearing speed current_load status current_trip_id stop\n";
+						continue;
+					}
+				}
+				cout << "List of commands:\n"
+				"\tnotice — Sends a notice message.\n"
+				"\tping — Sends a ping message.\n"
+				"\tlu — Sends a location update.\n"
+				"\tq — Quits the client.\n"
+				"\thelp — Print commands and command information.\n";
 			}
 
 		}
@@ -279,6 +318,7 @@ int main(int argc, char **argv) {
 		SEND_USER_MESSAGE(obdi::Ping, prepare_message(ping, MessageType::PING));
 
 		is_running = false;
+		cout << "Exiting...\n";
 		dispatch_thread.join();
 
 		CLOSE_SOCKET(main_socket);
