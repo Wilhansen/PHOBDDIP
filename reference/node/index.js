@@ -77,15 +77,7 @@ function main() {
 	header.message_type = 2;
 	header.payload_size = ping_bytes.length;
 	header.vessel_id = 1;
-	header.payload_ad = {
-		nonce: sodium.randombytes_buf(NONCE_SIZE), 
-		mac: null
-	};
-	var encrypted = sodium.crypto_aead_chacha20poly1305_ietf_encrypt_detached(ping_bytes, header_bytes, null, header.payload_ad.nonce, client_tx);
-	header.payload_ad.mac = encrypted.mac;
-
-	var nonce_bytes = Buffer.from(header.payload_ad.nonce.buffer);
-	var mac_bytes = Buffer.from(header.payload_ad.mac.buffer);
+	var nonce = sodium.randombytes_buf(NONCE_SIZE);
 	var header_bytes = Buffer.alloc(16);
 	header_bytes.writeUInt8(header.marker[0], 0);
 	header_bytes.writeUInt8(header.marker[1], 1);
@@ -95,11 +87,17 @@ function main() {
 	header_bytes.writeUInt8(header.message_type, 5);
 	header_bytes.writeUInt16LE(header.payload_size, 6);
 	header_bytes.writeUIntLE(header.vessel_id, 8, 8);
-	
-	var send_buffer = Buffer.concat([header_bytes, nonce_bytes, mac_bytes, ping_bytes]);
-	console.log(mac_bytes);
-	console.log(nonce_bytes);
+	var encrypted = sodium.crypto_aead_chacha20poly1305_ietf_encrypt_detached(ping_bytes, header_bytes, null, nonce, client_tx);
+	header.payload_ad = {
+		nonce: nonce,
+		mac: encrypted.mac
+	};
 
+	var encrypted_bytes = Buffer.from(encrypted.ciphertext.buffer);
+	var nonce_bytes = Buffer.from(header.payload_ad.nonce.buffer);
+	var mac_bytes = Buffer.from(header.payload_ad.mac.buffer);
+	
+	var send_buffer = Buffer.concat([header_bytes, nonce_bytes, mac_bytes, encrypted_bytes]);
 	socket.send(send_buffer, 0, send_buffer.length, 1234, '127.0.0.1', function(err, bytes) {
 		if(err) throw err;
 		socket.close();
