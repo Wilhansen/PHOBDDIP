@@ -16,6 +16,8 @@ var sign_pk, sign_sk, server_sign_pk;
 var client_pk_path = process.argv[2];
 var client_sk_path = process.argv[3];
 var server_pk_path = process.argv[4];
+var MessageType;
+var Notice, Ping, Ack, CryptoError, LocationUpdate, TripInfoUpdateStatus, ChangeSettings, Error, ETAUpdate, TripInfoUpdate;
 
 var ClientCrypto = function(sign_pk, sign_sk, server_sign_pk) {
 	this.sign_pk = sign_pk;
@@ -66,18 +68,6 @@ fs.readFile(server_pk_path, function(err, data) {
 	server_sign_pk = new Uint8Array(data);
 	if(initialized()) main();
 });
-
-var ClientMessageHeader = function() {
-	this.marker = OBDI_MARKER; 
-	this.version = OBDI_VERSION;
-	this.message_type = 0;
-	this.payload_size = 0;
-	this.vessel_id = 0;
-	this.payload_ad = null;	
-}
-
-var MessageType;
-var Notice, Ping, Ack, CryptoError, LocationUpdate, TripInfoUpdateStatus, ChangeSettings, Error, ETAUpdate, TripInfoUpdate;
 
 function prepare_message(message, type) {
 	var message_bytes = type.encode(message).finish();
