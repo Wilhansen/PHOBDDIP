@@ -8,10 +8,39 @@ const MAC_SIZE = 16;
 var socket = dgram.createSocket('udp4');
 
 var obdi;
+var crypto;
 var sign_pk, sign_sk, server_sign_pk;
 var client_pk_path = process.argv[2];
 var client_sk_path = process.argv[3];
 var server_pk_path = process.argv[4];
+
+var ClientCrypto = function(sign_pk, sign_sk, server_sign_pk) {
+	this.sign_pk = sign_pk;
+	this.sign_sk = sign_sk;
+	this.server_sign_pk = server_sign_pk;	
+	this.derive_keys();
+};
+
+ClientCrypto.prototype.derive_keys = function() {
+	this.client_pk = sodium.crypto_sign_ed25519_pk_to_curve25519(this.sign_pk);
+	this.client_sk = sodium.crypto_sign_ed25519_sk_to_curve25519(this.sign_sk);
+	this.server_pk = sodium.crypto_sign_ed25519_pk_to_curve25519(this.server_sign_pk);
+	var session_keys = sodium.crypto_kx_client_session_keys(this.client_pk, this.client_sk, this.server_pk);
+	this.client_tx = session_keys.sharedTx;
+	this.client_rx = session_keys.sharedRx;
+};
+
+ClientCrypto.prototype.encrypt_payload = function(header, payload) {
+	var nonce = sodium.randombytes_buf(NONCE_SIZE);
+	var res = sodium.crypto_aead_chacha20poly1305_ietf_encrypt_detached(payload, header, null, nonce,
+		this.client_tx);
+
+	return {
+		encrypted_bytes: Buffer.from(res.ciphertext.buffer),
+		nonce_bytes: Buffer.from(nonce.buffer),
+		mac_bytes: Buffer.from(res.mac.buffer)
+	};
+};
 
 function initialized() {
 	return sign_pk != undefined && sign_sk != undefined && server_sign_pk != undefined && obdi != undefined;
@@ -51,17 +80,7 @@ protobuf.load('../../obdi.proto', function(err, root) {
 });
 
 function main() {
-
-	var client_pk, client_sk, server_pk,
-		client_tx, client_rx;
-
-	client_pk = sodium.crypto_sign_ed25519_pk_to_curve25519(sign_pk);
-	client_sk = sodium.crypto_sign_ed25519_sk_to_curve25519(sign_sk);
-	server_pk = sodium.crypto_sign_ed25519_pk_to_curve25519(server_sign_pk);
-
-	var session_keys = sodium.crypto_kx_client_session_keys(client_pk, client_sk, server_pk);
-	client_tx = session_keys.sharedTx;
-	client_rx = session_keys.sharedRx;
+	crypto = new ClientCrypto(sign_pk, sign_sk, server_sign_pk);
 
 	var Notice = obdi.lookupType('obdi.Notice');
 	var Ping = obdi.lookupType('obdi.Ping');
@@ -87,17 +106,10 @@ function main() {
 	header_bytes.writeUInt8(header.message_type, 5);
 	header_bytes.writeUInt16LE(header.payload_size, 6);
 	header_bytes.writeUIntLE(header.vessel_id, 8, 8);
-	var encrypted = sodium.crypto_aead_chacha20poly1305_ietf_encrypt_detached(ping_bytes, header_bytes, null, nonce, client_tx);
-	header.payload_ad = {
-		nonce: nonce,
-		mac: encrypted.mac
-	};
 
-	var encrypted_bytes = Buffer.from(encrypted.ciphertext.buffer);
-	var nonce_bytes = Buffer.from(header.payload_ad.nonce.buffer);
-	var mac_bytes = Buffer.from(header.payload_ad.mac.buffer);
-	
-	var send_buffer = Buffer.concat([header_bytes, nonce_bytes, mac_bytes, encrypted_bytes]);
+	var res = crypto.encrypt_payload(header_bytes, ping_bytes);
+	var send_buffer = Buffer.concat([header_bytes, res.nonce_bytes, res.mac_bytes, res.encrypted_bytes]);
+
 	socket.send(send_buffer, 0, send_buffer.length, 1234, '127.0.0.1', function(err, bytes) {
 		if(err) throw err;
 		socket.close();
