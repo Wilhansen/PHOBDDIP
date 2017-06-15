@@ -5,8 +5,8 @@ const sodium = require('libsodium-wrappers');
 const readline = require('readline');
 const commandLineArgs = require('command-line-args');
 const optionDefinitions = [
-	{ name: 'server', alias: 's', type: String, defaultOption: '127.0.0.1' },
-	{ name: 'port', alias: 'p', type: Number, defaultOption: 1234 },
+	{ name: 'server', alias: 's', type: String, defaultValue: '127.0.0.1' },
+	{ name: 'port', alias: 'p', type: Number, defaultValue: 1234 },
 	{ name: 'pub', type: String },
 	{ name: 'priv', type: String },
 	{ name: 'sk', type: String },
@@ -32,13 +32,6 @@ var address = options['server'];
 var port = options['port'];
 var MessageType;
 var Notice, Ping, Ack, CryptoError, LocationUpdate, TripInfoUpdateStatus, ChangeSettings, Error, ETAUpdate, TripInfoUpdate;
-
-var ClientCrypto = function(sign_pk, sign_sk, server_sign_pk) {
-	this.sign_pk = sign_pk;
-	this.sign_sk = sign_sk;
-	this.server_sign_pk = server_sign_pk;	
-	this.derive_keys();
-};
 
 var ClientMessageHeader = function() {
 	this.marker = OBDI_MARKER;
@@ -75,6 +68,13 @@ ServerMessageHeader.prototype.fromBuffer = function(buffer) {
 	this.message_type = buffer.readUInt8(7);
 };
 
+var ClientCrypto = function(sign_pk, sign_sk, server_sign_pk) {
+	this.sign_pk = sign_pk;
+	this.sign_sk = sign_sk;
+	this.server_sign_pk = server_sign_pk;
+	this.derive_keys();
+};
+
 ClientCrypto.prototype.derive_keys = function() {
 	this.client_pk = sodium.crypto_sign_ed25519_pk_to_curve25519(this.sign_pk);
 	this.client_sk = sodium.crypto_sign_ed25519_sk_to_curve25519(this.sign_sk);
@@ -100,9 +100,7 @@ ClientCrypto.prototype.decrypt_payload = function(header, payload) {
 	var header_nonce = header.slice(8, 20);
 	var header_mac = header.slice(20, 36);
 
-	var res = sodium.crypto_aead_chacha20poly1305_ietf_decrypt_detached(null, payload, header_mac, header.slice(0, 8), header_nonce, this.client_rx);
-
-	return res;
+	return sodium.crypto_aead_chacha20poly1305_ietf_decrypt_detached(null, payload, header_mac, header.slice(0, 8), header_nonce, this.client_rx);
 };
 
 function initialized() {
@@ -188,10 +186,9 @@ function getCurrentTime() {
 function main() {
 	crypto = new ClientCrypto(sign_pk, sign_sk, server_sign_pk);
 
-	var now = parseInt(Date.now() / 1000, 10);
-	var ping = Ping.create({messageId: 1|0, timeGenerated: {seconds: now, nanos: 0|0 }});
+	var ping = Ping.create({messageId: 1|0, timeGenerated: getCurrentTime()});
 	var send_buffer = prepare_message(ping, Ping);
-	socket.send(send_buffer, 0, send_buffer.length, 1234, '127.0.0.1');
+	socket.send(send_buffer, 0, send_buffer.length, port, address);
 
 	var rl = readline.createInterface({input: process.stdin, output: process.stdout});
 	rl.setPrompt('client: ' + client_id + '> ');
@@ -217,13 +214,13 @@ function main() {
 
 			var notice = Notice.create({messageId: getMessageId(), timeGenerated: getCurrentTime(), severity: severity, details: notice_message});
 			var send_buffer = prepare_message(notice, Notice);
-			socket.send(send_buffer, 0, send_buffer.length, 1234, '127.0.0.1');
+			socket.send(send_buffer, 0, send_buffer.length, port, address);
 		}
 		if(split[0] == 'ping') {
 			var ping = Ping.create({messageId: getMessageId(), timeGenerated: getCurrentTime()});
 			
 			var send_buffer = prepare_message(ping, Ping);
-			socket.send(send_buffer, 0, send_buffer.length, 1234, '127.0.0.1');
+			socket.send(send_buffer, 0, send_buffer.length, port, address);
 		}
 		if(split[0] == 'lu') {
 			var longitude = parseFloat(split[1]);
@@ -254,7 +251,7 @@ function main() {
 
 			var lu = LocationUpdate.create(luObject);
 			var send_buffer = prepare_message(lu, LocationUpdate);
-			socket.send(send_buffer, 0, send_buffer.length, 1234, '127.0.0.1');
+			socket.send(send_buffer, 0, send_buffer.length, port, address);
 		} else {
 			if(split[0] == 'help') {
 				if(split[1] == 'notice') {
