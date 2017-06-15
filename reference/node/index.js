@@ -2,6 +2,7 @@ const fs = require('fs');
 const dgram = require('dgram');
 const protobuf = require('protobufjs');
 const sodium = require('libsodium-wrappers');
+const readline = require('readline');
 const NONCE_SIZE = 12;
 const MAC_SIZE = 16;
 const OBDI_MARKER = [79, 66, 68, 73];
@@ -174,18 +175,92 @@ function getCurrentTime() {
 function main() {
 	crypto = new ClientCrypto(sign_pk, sign_sk, server_sign_pk);
 
-	var Notice = obdi.lookupType('obdi.Notice');
-	var Ping = obdi.lookupType('obdi.Ping');
-	var VesselStatus = obdi.lookup('obdi.VesselStatus');
-	var Severity = obdi.lookup('obdi.Severity');
-
 	var now = parseInt(Date.now() / 1000, 10);
 	var ping = Ping.create({messageId: 1|0, timeGenerated: {seconds: now, nanos: 0|0 }});
 	var send_buffer = prepare_message(ping, Ping);
+	socket.send(send_buffer, 0, send_buffer.length, 1234, '127.0.0.1');
 
-	socket.send(send_buffer, 0, send_buffer.length, 1234, '127.0.0.1', function(err, bytes) {
-		if(err) throw err;
-	});
+	var rl = readline.createInterface({input: process.stdin, output: process.stdout});
+	rl.setPrompt('client: ' + client_id + '> ');
+	rl.prompt();
+
+	rl.on('line', function(text) {
+		var split = text.split(' ');
+		if(split[0] == 'q') {
+			process.exit(0);
+		}
+		if(split[0] == 'notice') {
+			var notice_message = split[1];
+			var severity = parseInt(split[2]);
+
+			if(notice_message == undefined || isNaN(severity)) {
+				console.log('Invalid arguments. Type \"help notice\" for more information.');
+				return;
+			}
+
+			//TODO Quoted strings
+			var notice_message = split[1];
+			var severity = parseInt(split[2]);
+
+			var notice = Notice.create({messageId: getMessageId(), timeGenerated: getCurrentTime(), severity: severity, details: notice_message});
+			var send_buffer = prepare_message(notice, Notice);
+			socket.send(send_buffer, 0, send_buffer.length, 1234, '127.0.0.1');
+		}
+		if(split[0] == 'ping') {
+			var ping = Ping.create({messageId: getMessageId(), timeGenerated: getCurrentTime()});
+			
+			var send_buffer = prepare_message(ping, Ping);
+			socket.send(send_buffer, 0, send_buffer.length, 1234, '127.0.0.1');
+		}
+		if(split[0] == 'lu') {
+			var longitude = parseFloat(split[1]);
+			var latitude = parseFloat(split[2]);
+			var bearing = parseFloat(split[3]);
+			var speed = parseFloat(split[4]);
+			var current_load = parseInt(split[5]);
+			var status = parseInt(split[6]);
+			var current_trip_id = parseInt(split[7]);
+			var stop = parseInt(split[8]);	
+
+			if(isNaN(longitude) || isNaN(latitude) || isNaN(bearing) || isNaN(speed) || isNaN(current_load) || isNaN(status) || isNaN(current_trip_id) || isNaN(stop)) {
+				console.log('Invalid arguments. Type "help lu" for more information.');
+				return;
+			}
+
+			var luObject = {entries: []};
+			luObject.entries[0] = {
+				longitude: longitude,
+				latitude: latitude,
+				bearing: bearing,
+				speed: speed,
+				currentLoad: current_load,
+				status: status,
+				currentTripId: current_trip_id,
+				stop: stop
+			};
+
+			var lu = LocationUpdate.create(luObject);
+			var send_buffer = prepare_message(lu, LocationUpdate);
+			socket.send(send_buffer, 0, send_buffer.length, 1234, '127.0.0.1');
+		} else {
+			if(split[0] == 'help') {
+				if(split[1] == 'notice') {
+					console.log('notice message severity');
+					console.log('\tmessage - String to send, use quotes if the message contains spaces.')
+					console.log('\tseverity - Integer from 0 to 6 stating the severity associated with the message. See OBDI documentation for severity details.');
+				} else if(split[1] == 'lu') {
+					console.log('lu longitude latitude bearing speed current_load status current_strip_id stop');
+				} else if(split[1] == undefined) {
+					console.log('List of commands:');
+					console.log('\tnotice - Sends a notice message.');
+					console.log('\tping - Sends a ping message.');
+					console.log('\tlu - Sends a location update.');
+					console.log('\tq - Quits the client.');
+					console.log('\thelp - Print commands and command information.');
+				}
+			}
+		}
+   	});
 
 	socket.on('message', function(message, remote) {
 		var header_bytes = message.slice(0, 36);
@@ -204,7 +279,7 @@ function main() {
 			var ack = Ack.create({messageId: notice.messageId, timeGenerated: getCurrentTime()});
 			var send_buffer = prepare_message(ack, Ack);
 
-			socket_send(send_buffer, 0, send_buffer.length, port, address);
+			socket.send(send_buffer, 0, send_buffer.length, port, address);
 		} else if(header.message_type == MessageType[Ping.name]) {
 			var ping = Ping.decode(decrypted);
 			console.log("Recieved from server: ", ping);
@@ -231,7 +306,7 @@ function main() {
 			var error = Error.decode(decrypted);
 			console.log("Recieved from server: ", error);
 		} else if(header.message_type == MessageType[ETAUpdate.name]) {
-			var etaUpdate = ETAUPdate.decode(decrypted);
+			var etaUpdate = ETAUpdate.decode(decrypted);
 			console.log("Recieved from server: ", etaUpdate);
 		} else if(header.message_type == MessageType[TripInfoUpdate.name]) {
 			var tripInfoUpdate = TripInfoUpdate.decode(decrypted);
