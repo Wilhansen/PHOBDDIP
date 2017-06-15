@@ -34,6 +34,7 @@ var port = options['port'];
 var MessageType;
 var Notice, Ping, Ack, CryptoError, LocationUpdate, TripInfoUpdateStatus, ChangeSettings, Error, ETAUpdate, TripInfoUpdate;
 
+// Wrapper class for the buffer that contains client header information
 var ClientMessageHeader = function() {
 	this.marker = OBDI_MARKER;
 	this.version = OBDI_VERSION;
@@ -42,6 +43,7 @@ var ClientMessageHeader = function() {
 	this.vessel_id = 0;
 };
 
+// Creates a buffer from the given params, following the structure definition found in cpp/MessageHeaders.hpp 
 ClientMessageHeader.prototype.toBuffer = function() {
 	var buffer = Buffer.alloc(16);
 	buffer.writeUInt8(this.marker[0], 0);
@@ -55,6 +57,7 @@ ClientMessageHeader.prototype.toBuffer = function() {
 	return buffer;
 };
 
+// Wrapper class for the buffer that contains server header information
 var ServerMessageHeader = function() {
 	this.marker = OBDI_MARKER;
 	this.version = OBDI_VERSION;
@@ -62,6 +65,7 @@ var ServerMessageHeader = function() {
 	this.message_type = 0;
 };
 
+// Constructs the header class from a given buffer, following the structure definition found in cpp/MessageHeaders.hpp
 ServerMessageHeader.prototype.fromBuffer = function(buffer) {
 	this.marker = buffer.slice(0, 4);
 	this.version = buffer.readUInt8(4);
@@ -69,6 +73,7 @@ ServerMessageHeader.prototype.fromBuffer = function(buffer) {
 	this.message_type = buffer.readUInt8(7);
 };
 
+// This class holds references to the important keys needed for encryption/decryption (public, private, transmission, and reception)
 var ClientCrypto = function(sign_pk, sign_sk, server_sign_pk) {
 	this.sign_pk = sign_pk;
 	this.sign_sk = sign_sk;
@@ -76,6 +81,7 @@ var ClientCrypto = function(sign_pk, sign_sk, server_sign_pk) {
 	this.derive_keys();
 };
 
+// Signs the public and private keys (from file), and derives the transmission and reception keys from the signed keys
 ClientCrypto.prototype.derive_keys = function() {
 	this.client_pk = sodium.crypto_sign_ed25519_pk_to_curve25519(this.sign_pk);
 	this.client_sk = sodium.crypto_sign_ed25519_sk_to_curve25519(this.sign_sk);
@@ -86,9 +92,9 @@ ClientCrypto.prototype.derive_keys = function() {
 };
 
 ClientCrypto.prototype.encrypt_payload = function(header, payload) {
+	//TODO Implement NonceGenerator to avoid collisions
 	var nonce = sodium.randombytes_buf(NONCE_SIZE);
-	var res = sodium.crypto_aead_chacha20poly1305_ietf_encrypt_detached(payload, header, null, nonce,
-		this.client_tx);
+	var res = sodium.crypto_aead_chacha20poly1305_ietf_encrypt_detached(payload, header, null, nonce, this.client_tx);
 
 	return {
 		encrypted_bytes: Buffer.from(res.ciphertext.buffer),
@@ -104,6 +110,7 @@ ClientCrypto.prototype.decrypt_payload = function(header, payload) {
 	return sodium.crypto_aead_chacha20poly1305_ietf_decrypt_detached(null, payload, header_mac, header.slice(0, 8), header_nonce, this.client_rx);
 };
 
+// Returns true if all the needed files are loaded, required before starting main()
 function initialized() {
 	return sign_pk != undefined && sign_sk != undefined && server_sign_pk != undefined && obdi != undefined;
 }
@@ -156,6 +163,7 @@ protobuf.load('../../obdi.proto', function(err, root) {
 	ETAUpdate = obdi.lookupType('obdi.ETAUpdate');
 	TripInfoUpdate = obdi.lookupType('obdi.TripInfoUpdate');
 
+	// Emulates the MessageType enum in the C++ source
 	MessageType = {
 		Notice: 0,
 		Ping: 2,
