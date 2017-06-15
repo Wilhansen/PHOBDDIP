@@ -3,6 +3,17 @@ const dgram = require('dgram');
 const protobuf = require('protobufjs');
 const sodium = require('libsodium-wrappers');
 const readline = require('readline');
+const commandLineArgs = require('command-line-args');
+const optionDefinitions = [
+	{ name: 'server', alias: 's', type: String, defaultOption: '127.0.0.1' },
+	{ name: 'port', alias: 'p', type: Number, defaultOption: 1234 },
+	{ name: 'pub', type: String },
+	{ name: 'priv', type: String },
+	{ name: 'sk', type: String },
+	{ name: 'help', alias: 'h', type: Boolean }
+];
+const options = commandLineArgs(optionDefinitions);
+
 const NONCE_SIZE = 12;
 const MAC_SIZE = 16;
 const OBDI_MARKER = [79, 66, 68, 73];
@@ -14,9 +25,11 @@ var obdi;
 var crypto;
 var client_id = 1;
 var sign_pk, sign_sk, server_sign_pk;
-var client_pk_path = process.argv[2];
-var client_sk_path = process.argv[3];
-var server_pk_path = process.argv[4];
+var client_pk_path = options['pub'];
+var client_sk_path = options['priv'];
+var server_pk_path = options['sk'];
+var address = options['server'];
+var port = options['port'];
 var MessageType;
 var Notice, Ping, Ack, CryptoError, LocationUpdate, TripInfoUpdateStatus, ChangeSettings, Error, ETAUpdate, TripInfoUpdate;
 
