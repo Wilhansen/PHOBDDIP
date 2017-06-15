@@ -83,15 +83,12 @@ ClientCrypto.prototype.encrypt_payload = function(header, payload) {
 };
 
 ClientCrypto.prototype.decrypt_payload = function(header, payload) {
-	var header_marker = header.slice(0, 4);
-	var header_version = header.readUInt8(4);
-	var header_payload_size = header.readUInt16LE(5);
-	var header_message_type = header.readUInt8(7);
 	var header_nonce = header.slice(8, 20);
 	var header_mac = header.slice(20, 36);
 
 	var res = sodium.crypto_aead_chacha20poly1305_ietf_decrypt_detached(null, payload, header_mac, header.slice(0, 8), header_nonce, this.client_rx);
-	console.log(res);
+
+	return res;
 };
 
 function initialized() {
@@ -165,6 +162,15 @@ protobuf.load('../../obdi.proto', function(err, root) {
 	if(initialized()) main();
 });
 
+var message_id_counter = 1;
+function getMessageId() {
+	return message_id_counter++;
+}
+
+function getCurrentTime() {
+	return {seconds: parseInt(Date.now() / 1000, 10), nanos: 0|0 };
+}
+
 function main() {
 	crypto = new ClientCrypto(sign_pk, sign_sk, server_sign_pk);
 
@@ -185,6 +191,58 @@ function main() {
 		var header_bytes = message.slice(0, 36);
 		var payload_bytes = message.slice(36);
 		var decrypted = crypto.decrypt_payload(header_bytes, payload_bytes);
-		
+		var header = new ServerMessageHeader();
+		header.fromBuffer(header_bytes);
+
+		var address = remote.address;
+		var port = parseInt(remote.port);
+
+		if(header.message_type == MessageType[Notice.name]) {
+			var notice = Notice.decode(decrypted);
+			console.log("Recieved from server: " , notice);
+
+			var ack = Ack.create({messageId: notice.messageId, timeGenerated: getCurrentTime()});
+			var send_buffer = prepare_message(ack, Ack);
+
+			socket_send(send_buffer, 0, send_buffer.length, port, address);
+		} else if(header.message_type == MessageType[Ping.name]) {
+			var ping = Ping.decode(decrypted);
+			console.log("Recieved from server: ", ping);
+
+			var ack = Ack.create({messageId: ping.messageId, timeGenerated: getCurrentTime()});
+			var send_buffer = prepare_message(ack, Ack);
+
+			socket.send(send_buffer, 0, send_buffer.length,	port, address);
+		} else if(header.message_type == MessageType[Ack.name]) {
+			var ack = Ack.decode(decrypted);
+			console.log("Recieved from server: ", ack);
+		} else if(header.message_type == MessageType[CryptoError.name]) {
+			var crypto_error = CryptoError.decode(decrypted);
+			console.log("Recieved from server: ", crypto_error);
+		} else if(header.message_type == MessageType[ChangeSettings.name]) {
+			var change_settings = ChangeSettings.decode(decrypted);
+			console.log("Recieved from server: ", change_settings);
+
+			var ack = Ack.create({messageId: ping.messageId, timeGenerated: getCurrentTime()});
+			var send_buffer = prepare_message(ack, Ack);
+
+			socket.send(send_buffer, 0, send_buffer.length,	port, address);
+		} else if(header.message_type == MessageType[Error.name]) {
+			var error = Error.decode(decrypted);
+			console.log("Recieved from server: ", error);
+		} else if(header.message_type == MessageType[ETAUpdate.name]) {
+			var etaUpdate = ETAUPdate.decode(decrypted);
+			console.log("Recieved from server: ", etaUpdate);
+		} else if(header.message_type == MessageType[TripInfoUpdate.name]) {
+			var tripInfoUpdate = TripInfoUpdate.decode(decrypted);
+			console.log("Recieved from server: ", tripInfoUpdate);
+
+			var response = TripInfoUpdateStatus.create({updateId: tripInfoUpdate.updateId, status: 0});
+			var send_buffer = prepare_message(response, TripInfoUpdateStatus);
+
+			socket.send(send_buffer, 0, send_buffer.length, port, address);
+		} else {
+			console.log("[WARNING] Unknown message type: ", header.message_type);
+		}
 	});
 }
