@@ -244,6 +244,11 @@ int main(int argc, char **argv) {
 						"\thelp - Print commands and command information.\n";
 			}
 		}
+
+		is_running = false;
+		cout << "Exiting...\n";
+		dispatch_thread.join();
+
 		CLOSE_SOCKET(main_socket);
 	} catch ( const std::exception &e ) {
 		cerr << "[ERROR] " << e.what() << endl;
