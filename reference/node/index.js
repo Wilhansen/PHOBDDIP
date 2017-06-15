@@ -1,3 +1,5 @@
+//TODO Proper 64-bit handling 
+
 const fs = require('fs');
 const dgram = require('dgram');
 const protobuf = require('protobufjs');
@@ -43,9 +45,11 @@ var ClientMessageHeader = function() {
 	this.vessel_id = 0;
 };
 
+ClientMessageHeader.size = 16;
+
 // Creates a buffer from the given params, following the structure definition found in cpp/MessageHeaders.hpp 
 ClientMessageHeader.prototype.toBuffer = function() {
-	var buffer = Buffer.alloc(16);
+	var buffer = Buffer.alloc(ClientMessageHeader.size);
 	buffer.writeUInt8(this.marker[0], 0);
 	buffer.writeUInt8(this.marker[1], 1);
 	buffer.writeUInt8(this.marker[2], 2);
@@ -65,6 +69,8 @@ var ServerMessageHeader = function() {
 	this.message_type = 0;
 };
 
+ServerMessageHeader.size = 8;
+
 // Constructs the header class from a given buffer, following the structure definition found in cpp/MessageHeaders.hpp
 ServerMessageHeader.prototype.fromBuffer = function(buffer) {
 	this.marker = buffer.slice(0, 4);
@@ -73,11 +79,22 @@ ServerMessageHeader.prototype.fromBuffer = function(buffer) {
 	this.message_type = buffer.readUInt8(7);
 };
 
+var NonceGenerator = function() {
+	this.counter = 0;
+
+	this.next = function() {
+		var nonce = Buffer.from(sodium.randombytes_buf(NONCE_SIZE).buffer);
+		nonce.writeUIntLE(this.counter++, 4, 8); 
+		return new Uint8Array(nonce);
+	};
+};
+
 // This class holds references to the important keys needed for encryption/decryption (public, private, transmission, and reception)
 var ClientCrypto = function(sign_pk, sign_sk, server_sign_pk) {
 	this.sign_pk = sign_pk;
 	this.sign_sk = sign_sk;
 	this.server_sign_pk = server_sign_pk;
+	this.ng = new NonceGenerator();
 	this.derive_keys();
 };
 
@@ -92,8 +109,7 @@ ClientCrypto.prototype.derive_keys = function() {
 };
 
 ClientCrypto.prototype.encrypt_payload = function(header, payload) {
-	//TODO Implement NonceGenerator to avoid collisions
-	var nonce = sodium.randombytes_buf(NONCE_SIZE);
+	var nonce = this.ng.next();
 	var res = sodium.crypto_aead_chacha20poly1305_ietf_encrypt_detached(payload, header, null, nonce, this.client_tx);
 
 	return {
@@ -282,12 +298,35 @@ function main() {
    	});
 
 	socket.on('message', function(message, remote) {
+
+		if(message.length < ServerMessageHeader.size + NONCE_SIZE + MAC_SIZE) {
+			console.log("[WARNING] Recieved data too small: ", message.length);
+			return;
+		}
+
 		var header_bytes = message.slice(0, 36);
-		var payload_bytes = message.slice(36);
-		var decrypted = crypto.decrypt_payload(header_bytes, payload_bytes);
 		var header = new ServerMessageHeader();
 		header.fromBuffer(header_bytes);
 
+		if(header.marker[0] != OBDI_MARKER[0] || header.marker[1] != OBDI_MARKER[1] || header.marker[2] != OBDI_MARKER[2] || header.marker[3] != OBDI_MARKER[3]) {
+			console.log("[WARNING] Client header marker mismatch.");
+			return;
+		}
+
+		if(header.version != OBDI_VERSION) {
+			console.log("[WARNING] Client header version mismatch.");
+			return;
+		}
+
+		var payload_bytes = message.slice(36);
+
+		if(header.payload_size > payload_bytes.length) {
+			console.log("[WARNING] Payload size field greater than packet size.");
+			return;
+		}
+
+		var decrypted = crypto.decrypt_payload(header_bytes, payload_bytes);
+		
 		var address = remote.address;
 		var port = parseInt(remote.port);
 
