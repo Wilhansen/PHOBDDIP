@@ -17,6 +17,6 @@
 2. Copy the client.pub key to the keys directory, rename it 0000000000000001.pub (default client id = 1)
 3. Run server and client  
 `./server`  
-`./client --sk keys/server.pub`
+`./client --sk keys/server.pub`  
 `node index.js --sk keys/server.pub`
 4. Send messages from the client command line (`help` to show commands)
