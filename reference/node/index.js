@@ -7,6 +7,7 @@ const commandLineArgs = require('command-line-args');
 const optionDefinitions = [
 	{ name: 'server', alias: 's', type: String, defaultValue: '127.0.0.1' },
 	{ name: 'port', alias: 'p', type: Number, defaultValue: 1234 },
+	{ name: 'id', type: Number, defaultValue: 1 },
 	{ name: 'pub', type: String },
 	{ name: 'priv', type: String },
 	{ name: 'sk', type: String },
@@ -23,7 +24,7 @@ var socket = dgram.createSocket('udp4');
 
 var obdi;
 var crypto;
-var client_id = 1;
+var client_id = options['id'];
 var sign_pk, sign_sk, server_sign_pk;
 var client_pk_path = options['pub'];
 var client_sk_path = options['priv'];
