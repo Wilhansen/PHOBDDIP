@@ -293,7 +293,7 @@ function main() {
 
 		if(header.message_type == MessageType[Notice.name]) {
 			var notice = Notice.decode(decrypted);
-			console.log("Recieved from server: " , notice);
+			console.log("Received from server: " , notice);
 
 			var ack = Ack.create({messageId: notice.messageId, timeGenerated: getCurrentTime()});
 			var send_buffer = prepare_message(ack, Ack);
@@ -301,7 +301,7 @@ function main() {
 			socket.send(send_buffer, 0, send_buffer.length, port, address);
 		} else if(header.message_type == MessageType[Ping.name]) {
 			var ping = Ping.decode(decrypted);
-			console.log("Recieved from server: ", ping);
+			console.log("Received from server: ", ping);
 
 			var ack = Ack.create({messageId: ping.messageId, timeGenerated: getCurrentTime()});
 			var send_buffer = prepare_message(ack, Ack);
@@ -309,13 +309,13 @@ function main() {
 			socket.send(send_buffer, 0, send_buffer.length,	port, address);
 		} else if(header.message_type == MessageType[Ack.name]) {
 			var ack = Ack.decode(decrypted);
-			console.log("Recieved from server: ", ack);
+			console.log("Received from server: ", ack);
 		} else if(header.message_type == MessageType[CryptoError.name]) {
 			var crypto_error = CryptoError.decode(decrypted);
-			console.log("Recieved from server: ", crypto_error);
+			console.log("Received from server: ", crypto_error);
 		} else if(header.message_type == MessageType[ChangeSettings.name]) {
 			var change_settings = ChangeSettings.decode(decrypted);
-			console.log("Recieved from server: ", change_settings);
+			console.log("Received from server: ", change_settings);
 
 			var ack = Ack.create({messageId: ping.messageId, timeGenerated: getCurrentTime()});
 			var send_buffer = prepare_message(ack, Ack);
@@ -323,13 +323,13 @@ function main() {
 			socket.send(send_buffer, 0, send_buffer.length,	port, address);
 		} else if(header.message_type == MessageType[Error.name]) {
 			var error = Error.decode(decrypted);
-			console.log("Recieved from server: ", error);
+			console.log("Received from server: ", error);
 		} else if(header.message_type == MessageType[ETAUpdate.name]) {
 			var etaUpdate = ETAUpdate.decode(decrypted);
-			console.log("Recieved from server: ", etaUpdate);
+			console.log("Received from server: ", etaUpdate);
 		} else if(header.message_type == MessageType[TripInfoUpdate.name]) {
 			var tripInfoUpdate = TripInfoUpdate.decode(decrypted);
-			console.log("Recieved from server: ", tripInfoUpdate);
+			console.log("Received from server: ", tripInfoUpdate);
 
 			var response = TripInfoUpdateStatus.create({updateId: tripInfoUpdate.updateId, status: 0});
 			var send_buffer = prepare_message(response, TripInfoUpdateStatus);
