@@ -18,7 +18,7 @@ const options = commandLineArgs(optionDefinitions);
 
 const NONCE_SIZE = 12;
 const MAC_SIZE = 16;
-const OBDI_MARKER = [79, 66, 68, 73];
+const OBDI_MARKER = 'OBDI';
 const OBDI_VERSION = 0;
 
 var socket = dgram.createSocket('udp4');
@@ -50,10 +50,7 @@ ClientMessageHeader.size = 16;
 // Creates a buffer from the given params, following the structure definition found in cpp/MessageHeaders.hpp 
 ClientMessageHeader.prototype.toBuffer = function() {
 	var buffer = Buffer.alloc(ClientMessageHeader.size);
-	buffer.writeUInt8(this.marker[0], 0);
-	buffer.writeUInt8(this.marker[1], 1);
-	buffer.writeUInt8(this.marker[2], 2);
-	buffer.writeUInt8(this.marker[3], 3);	
+	buffer.write(this.marker);
 	buffer.writeUInt8(this.version, 4);
 	buffer.writeUInt8(MessageType[this.message_type.name], 5);
 	buffer.writeUInt16LE(this.payload_size, 6);
@@ -241,7 +238,7 @@ function main() {
 		if(split[0] == 'notice') {
 			var quote_split = text.split('"');
 			var notice_message = quote_split[1];
-			var severity = parseInt(split[2]);
+			var severity = parseInt(quote_split[2]);
 
 			if(notice_message == undefined || isNaN(severity)) {
 				console.log('Invalid arguments. Type \"help notice\" for more information.');
@@ -329,7 +326,7 @@ function main() {
 		var header = new ServerMessageHeader();
 		header.fromBuffer(header_bytes);
 
-		if(header.marker[0] != OBDI_MARKER[0] || header.marker[1] != OBDI_MARKER[1] || header.marker[2] != OBDI_MARKER[2] || header.marker[3] != OBDI_MARKER[3]) {
+		if(header.marker.toString() != OBDI_MARKER) {
 			console.log("[WARNING] Client header marker mismatch.");
 			return;
 		}
