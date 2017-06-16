@@ -1,7 +1,6 @@
-//TODO Proper 64-bit handling 
-
 const fs = require('fs');
 const dgram = require('dgram');
+const Long = require('long');
 const protobuf = require('protobufjs');
 const sodium = require('libsodium-wrappers');
 const readline = require('readline');
@@ -9,7 +8,7 @@ const commandLineArgs = require('command-line-args');
 const optionDefinitions = [
 	{ name: 'server', alias: 's', type: String, defaultValue: '127.0.0.1' },
 	{ name: 'port', alias: 'p', type: Number, defaultValue: 1234 },
-	{ name: 'id', type: Number, defaultValue: 1 },
+	{ name: 'id', type: String, defaultValue: '1' },
 	{ name: 'pub', type: String },
 	{ name: 'priv', type: String },
 	{ name: 'sk', type: String },
@@ -26,7 +25,7 @@ var socket = dgram.createSocket('udp4');
 
 var obdi;
 var crypto;
-var client_id = options['id'];
+var client_id = Long.fromString(options['id'], true);
 var sign_pk, sign_sk, server_sign_pk;
 var client_pk_path = options['pub'];
 var client_sk_path = options['priv'];
@@ -43,7 +42,7 @@ var ClientMessageHeader = function() {
 	this.version = OBDI_VERSION;
 	this.payload_size = 0;
 	this.message_type = 0;
-	this.vessel_id = 0;
+	this.vessel_id = new Long(0, 0, true);
 };
 
 ClientMessageHeader.size = 16;
@@ -58,7 +57,8 @@ ClientMessageHeader.prototype.toBuffer = function() {
 	buffer.writeUInt8(this.version, 4);
 	buffer.writeUInt8(MessageType[this.message_type.name], 5);
 	buffer.writeUInt16LE(this.payload_size, 6);
-	buffer.writeUIntLE(this.vessel_id, 8, 8);
+	buffer.writeUInt32LE(this.vessel_id.low, 8);
+	buffer.writeUInt32LE(this.vessel_id.high, 12);
 	return buffer;
 };
 
