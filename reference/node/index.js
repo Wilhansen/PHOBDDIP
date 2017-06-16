@@ -85,7 +85,7 @@ var NonceGenerator = function() {
 
 	this.next = function() {
 		var nonce = Buffer.from(sodium.randombytes_buf(NONCE_SIZE).buffer);
-		nonce.writeUIntLE(this.counter++, 4, 8); 
+		nonce.writeUIntLE(this.counter++, NONCE_SIZE - 8, 8); 
 		return new Uint8Array(nonce);
 	};
 };
@@ -150,6 +150,7 @@ fs.readFile(server_pk_path, function(err, data) {
 	if(initialized()) main();
 });
 
+// Encodes the OBDI message into a buffer, then appends the header buffer. Returns the buffer to be sent.
 function prepare_message(message, type) {
 	var message_bytes = type.encode(message).finish();
 	var header_bytes = Buffer.alloc(16);
@@ -169,6 +170,7 @@ protobuf.load('../../obdi.proto', function(err, root) {
 	if(err) throw err;
 	obdi = root;
 
+	// OBDI message definitions
 	Notice = obdi.lookupType('obdi.Notice');
 	Ping = obdi.lookupType('obdi.Ping');
 	Ack = obdi.lookupType('obdi.Ack');
@@ -180,6 +182,7 @@ protobuf.load('../../obdi.proto', function(err, root) {
 	ETAUpdate = obdi.lookupType('obdi.ETAUpdate');
 	TripInfoUpdate = obdi.lookupType('obdi.TripInfoUpdate');
 
+	// OBDI enum definitions
 	Severity = obdi.lookup('obdi.Severity');
 	VesselStatus = obdi.lookup('obdi.VesselStatus');
 	Operation = obdi.lookup('obdi.ModifyServerKeys.Operation');
@@ -215,12 +218,16 @@ function getCurrentTime() {
 	return {seconds: parseInt(Date.now() / 1000, 10), nanos: 0|0 };
 }
 
+function send_callback(err, bytes) {
+	if(err) throw err;
+}
+
 function main() {
 	crypto = new ClientCrypto(sign_pk, sign_sk, server_sign_pk);
 
 	var ping = Ping.create({messageId: 1|0, timeGenerated: getCurrentTime()});
 	var send_buffer = prepare_message(ping, Ping);
-	socket.send(send_buffer, 0, send_buffer.length, port, address);
+	socket.send(send_buffer, 0, send_buffer.length, port, address, send_callback);
 
 	var rl = readline.createInterface({input: process.stdin, output: process.stdout});
 	rl.setPrompt('client: ' + client_id + '> ');
@@ -242,18 +249,19 @@ function main() {
 			}
 
 			if(Severity.valuesById[severity] == undefined) {
-				console.log('Invalid severity level.);
+				console.log('Invalid severity level.');
+				return;
 			}
 
 			var notice = Notice.create({messageId: getMessageId(), timeGenerated: getCurrentTime(), severity: severity, details: notice_message});
 			var send_buffer = prepare_message(notice, Notice);
-			socket.send(send_buffer, 0, send_buffer.length, port, address);
+			socket.send(send_buffer, 0, send_buffer.length, port, address, send_callback);
 		}
 		if(split[0] == 'ping') {
 			var ping = Ping.create({messageId: getMessageId(), timeGenerated: getCurrentTime()});
 			
 			var send_buffer = prepare_message(ping, Ping);
-			socket.send(send_buffer, 0, send_buffer.length, port, address);
+			socket.send(send_buffer, 0, send_buffer.length, port, address, send_callback);
 		}
 		if(split[0] == 'lu') {
 			var longitude = parseFloat(split[1]);
@@ -289,7 +297,7 @@ function main() {
 
 			var lu = LocationUpdate.create(luObject);
 			var send_buffer = prepare_message(lu, LocationUpdate);
-			socket.send(send_buffer, 0, send_buffer.length, port, address);
+			socket.send(send_buffer, 0, send_buffer.length, port, address, send_callback);
 		} else {
 			if(split[0] == 'help') {
 				if(split[1] == 'notice') {
@@ -350,7 +358,7 @@ function main() {
 			var ack = Ack.create({messageId: notice.messageId, timeGenerated: getCurrentTime()});
 			var send_buffer = prepare_message(ack, Ack);
 
-			socket.send(send_buffer, 0, send_buffer.length, port, address);
+			socket.send(send_buffer, 0, send_buffer.length, port, address, send_callback);
 		} else if(header.message_type == MessageType[Ping.name]) {
 			var ping = Ping.decode(decrypted);
 			console.log("Received from server: ", ping);
@@ -358,7 +366,7 @@ function main() {
 			var ack = Ack.create({messageId: ping.messageId, timeGenerated: getCurrentTime()});
 			var send_buffer = prepare_message(ack, Ack);
 
-			socket.send(send_buffer, 0, send_buffer.length,	port, address);
+			socket.send(send_buffer, 0, send_buffer.length,	port, address, send_callback);
 		} else if(header.message_type == MessageType[Ack.name]) {
 			var ack = Ack.decode(decrypted);
 			console.log("Received from server: ", ack);
@@ -372,7 +380,7 @@ function main() {
 			var ack = Ack.create({messageId: ping.messageId, timeGenerated: getCurrentTime()});
 			var send_buffer = prepare_message(ack, Ack);
 
-			socket.send(send_buffer, 0, send_buffer.length,	port, address);
+			socket.send(send_buffer, 0, send_buffer.length,	port, address, send_callback);
 		} else if(header.message_type == MessageType[Error.name]) {
 			var error = Error.decode(decrypted);
 			console.log("Received from server: ", error);
@@ -386,7 +394,7 @@ function main() {
 			var response = TripInfoUpdateStatus.create({updateId: tripInfoUpdate.updateId, status: 0});
 			var send_buffer = prepare_message(response, TripInfoUpdateStatus);
 
-			socket.send(send_buffer, 0, send_buffer.length, port, address);
+			socket.send(send_buffer, 0, send_buffer.length, port, address, send_callback);
 		} else {
 			console.log("[WARNING] Unknown message type: ", header.message_type);
 		}
