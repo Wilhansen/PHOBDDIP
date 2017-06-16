@@ -232,7 +232,8 @@ function main() {
 			process.exit(0);
 		}
 		if(split[0] == 'notice') {
-			var notice_message = split[1];
+			var quote_split = text.split('"');
+			var notice_message = quote_split[1];
 			var severity = parseInt(split[2]);
 
 			if(notice_message == undefined || isNaN(severity)) {
@@ -243,10 +244,6 @@ function main() {
 			if(Severity.valuesById[severity] == undefined) {
 				console.log('Invalid severity level.);
 			}
-
-			//TODO Quoted strings
-			var notice_message = split[1];
-			var severity = parseInt(split[2]);
 
 			var notice = Notice.create({messageId: getMessageId(), timeGenerated: getCurrentTime(), severity: severity, details: notice_message});
 			var send_buffer = prepare_message(notice, Notice);
