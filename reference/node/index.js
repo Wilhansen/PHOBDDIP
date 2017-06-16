@@ -35,6 +35,7 @@ var address = options['server'];
 var port = options['port'];
 var MessageType;
 var Notice, Ping, Ack, CryptoError, LocationUpdate, TripInfoUpdateStatus, ChangeSettings, Error, ETAUpdate, TripInfoUpdate;
+var Severity, VesselStatus, Operation, Status, Reason;
 
 // Wrapper class for the buffer that contains client header information
 var ClientMessageHeader = function() {
@@ -179,6 +180,12 @@ protobuf.load('../../obdi.proto', function(err, root) {
 	ETAUpdate = obdi.lookupType('obdi.ETAUpdate');
 	TripInfoUpdate = obdi.lookupType('obdi.TripInfoUpdate');
 
+	Severity = obdi.lookup('obdi.Severity');
+	VesselStatus = obdi.lookup('obdi.VesselStatus');
+	Operation = obdi.lookup('obdi.ModifyServerKeys.Operation');
+	Status = obdi.lookup('obdi.TripInfoUpdateStatus.Status');
+	Reason = obdi.lookup('obdi.Error.Reason');
+
 	// Emulates the MessageType enum in the C++ source
 	MessageType = {
 		Notice: 0,
@@ -233,6 +240,10 @@ function main() {
 				return;
 			}
 
+			if(Severity.valuesById[severity] == undefined) {
+				console.log('Invalid severity level.);
+			}
+
 			//TODO Quoted strings
 			var notice_message = split[1];
 			var severity = parseInt(split[2]);
@@ -253,12 +264,17 @@ function main() {
 			var bearing = parseFloat(split[3]);
 			var speed = parseFloat(split[4]);
 			var current_load = parseInt(split[5]);
-			var status = parseInt(split[6]);
+			var vessel_status = parseInt(split[6]);
 			var current_trip_id = parseInt(split[7]);
 			var stop = parseInt(split[8]);	
 
-			if(isNaN(longitude) || isNaN(latitude) || isNaN(bearing) || isNaN(speed) || isNaN(current_load) || isNaN(status) || isNaN(current_trip_id) || isNaN(stop)) {
+			if(isNaN(longitude) || isNaN(latitude) || isNaN(bearing) || isNaN(speed) || isNaN(current_load) || isNaN(vessel_status) || isNaN(current_trip_id) || isNaN(stop)) {
 				console.log('Invalid arguments. Type "help lu" for more information.');
+				return;
+			}
+
+			if(VesselStatus.valuesById[status] == undefined) {
+				console.log('Invalid vessel status.');
 				return;
 			}
 
@@ -269,7 +285,7 @@ function main() {
 				bearing: bearing,
 				speed: speed,
 				currentLoad: current_load,
-				status: status,
+				status: vessel_status,
 				currentTripId: current_trip_id,
 				stop: stop
 			};
@@ -284,7 +300,7 @@ function main() {
 					console.log('\tmessage - String to send, use quotes if the message contains spaces.')
 					console.log('\tseverity - Integer from 0 to 6 stating the severity associated with the message. See OBDI documentation for severity details.');
 				} else if(split[1] == 'lu') {
-					console.log('lu longitude latitude bearing speed current_load status current_strip_id stop');
+					console.log('lu longitude latitude bearing speed current_load status current_trip_id stop');
 				} else if(split[1] == undefined) {
 					console.log('List of commands:');
 					console.log('\tnotice - Sends a notice message.');
