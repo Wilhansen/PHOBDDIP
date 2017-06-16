@@ -11,6 +11,7 @@ enum class MessageType : uint8_t {
 	ACK = 3,
 
 	CRYPTO_ERROR = 10,
+	MODIFY_SERVER_KEYS = 11,
 
 	LOCATION_UPDATE = 20,
 	TRIP_INFO_UPDATE_STATUS = 21,

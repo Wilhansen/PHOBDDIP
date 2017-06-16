@@ -58,7 +58,6 @@ message ModifyServerKeys {
 	uint32 message_id = 1;
 	google.protobuf.Timestamp time_issued = 2;
 	Operation operation = 3;
-	uint32 server_id = 4;
 	bytes public_key = 5;
 }
 
