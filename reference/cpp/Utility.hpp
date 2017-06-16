@@ -111,18 +111,19 @@ public:
 		INVALID_PAYLOAD
 	};
 private:
-	std::vector<uint8_t> sign_pk, server_sign_pk;
+	std::vector<uint8_t> sign_pk, server_sign_pk, master_sign_pk;
 	SecureMemory client_rx, client_tx, sign_sk;
 	NonceGenerator ng;
 	const uint64_t client_id;
 	
 	void derive_keys();
 public:
-	ClientCrypto(const uint64_t client_id, const char *pk_path, const char *sk_path, const char *server_key_path);
+	ClientCrypto(const uint64_t client_id, const char *pk_path, const char *sk_path, const char *server_key_path, const char *master_key_path);
 	Result decrypt_payload(const ServerMessageHeader &payload_header, void *payload);
 	Result encrypt_payload(ClientMessageHeader &payload_header, const void *payload, void *destination);
 	void sign_payload(ClientMessageHeader &header, uint8_t destination[crypto_sign_BYTES]);
 	bool verify_signed_server_payload(const ServerMessageHeader &header, const uint8_t signature[crypto_sign_BYTES]);
+	bool verify_signed_master_payload(const ServerMessageHeader &header, const uint8_t signature[crypto_sign_BYTES]);
 	void replace_server_key(const std::vector<uint8_t> &server_sign_pk);
 };
 

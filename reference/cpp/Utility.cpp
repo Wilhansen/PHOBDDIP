@@ -140,11 +140,12 @@ void ServerCrypto::sign_payload(ServerMessageHeader &header_and_payload, uint8_t
 
 //-----------------ClientCrypto-------------------
 
-ClientCrypto::ClientCrypto(const uint64_t client_id, const char *pk_path, const char *sk_path, const char *server_key_path) :
+ClientCrypto::ClientCrypto(const uint64_t client_id, const char *pk_path, const char *sk_path, const char *server_key_path, const char *master_key_path) :
 client_id(client_id), client_rx(crypto_kx_SESSIONKEYBYTES), client_tx(crypto_kx_SESSIONKEYBYTES), sign_sk(crypto_sign_ed25519_SECRETKEYBYTES) {
 	server_sign_pk = readfile(server_key_path);
 	sign_pk = readfile(pk_path);
-
+	master_sign_pk = readfile(master_key_path);
+	
 	if ( FILE *fp = fopen(sk_path, "rb") ) {
 		const auto len = fread(sign_sk.data(), 1, sign_sk.size(), fp);
 		fclose(fp);
@@ -195,6 +196,14 @@ bool ClientCrypto::verify_signed_server_payload(const ServerMessageHeader &heade
 		return false;
 	}
 	return crypto_sign_verify_detached(signature, (const uint8_t*)&header, sizeof(ServerMessageHeader) + header.payload_size, server_sign_pk.data()) == 0;
+}
+
+bool ClientCrypto::verify_signed_master_payload(const ServerMessageHeader &header, const uint8_t signature[crypto_sign_BYTES]) {
+	const PayloadAuthenticationData zero = { 0 };
+	if ( memcmp(&zero, &header.payload_ad, sizeof(PayloadAuthenticationData)) != 0 ) {
+		return false;
+	}
+	return crypto_sign_verify_detached(signature, (const uint8_t*)&header, sizeof(ServerMessageHeader) + header.payload_size, master_sign_pk.data()) == 0;
 }
 
 void ClientCrypto::replace_server_key(const std::vector<uint8_t> &server_sign_pk) {

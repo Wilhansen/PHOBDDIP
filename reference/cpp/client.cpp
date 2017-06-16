@@ -87,6 +87,8 @@ int main(int argc, char **argv) {
 			cxxopts::value<string>()->default_value("client.priv"))
 		("sk", "Server public key path.",
 			cxxopts::value<string>()->default_value("server.pub"))
+		("mk", "Master public key path.",
+			cxxopts::value<string>()->default_value("master.pub"))
 		("h,help", "Print help")
 	;
 
@@ -101,7 +103,8 @@ int main(int argc, char **argv) {
 			options["id"].as<uint64_t>(),
 			options["pub"].as<string>().c_str(),
 			options["priv"].as<string>().c_str(),
-			options["sk"].as<string>().c_str()
+			options["sk"].as<string>().c_str(),
+			options["mk"].as<string>().c_str()
 		));
 
 		client_id = options["id"].as<uint64_t>();
@@ -201,6 +204,38 @@ int main(int argc, char **argv) {
 						continue;	
 					}
 					cout << "Got Server CryptoError message: " << ce.DebugString();
+				} else if ( server_header->message_type == MessageType::MODIFY_SERVER_KEYS ) {
+					if ( sizeof(ServerMessageHeader) + server_header->payload_size + crypto_sign_BYTES > recvlen ) {
+						cerr << "[WARNING] Unencrypted server payload has no signature.\n";
+						continue;
+					}
+					if ( !client_crypto->verify_signed_master_payload(*server_header, buffer + sizeof(ServerMessageHeader) + server_header->payload_size ) ) {
+						cerr << "[WARNING] Signed server payload verification failed.\n";
+						continue;
+					}
+					obdi::ModifyServerKeys msk;
+					if (!msk.ParseFromArray(buffer + sizeof(ServerMessageHeader), server_header->payload_size)) {
+						cerr << "[WARNING] Unable to parse ModifyServerKeys message.\n";
+						continue;
+					}
+					cout << "Got Server ModifyServerKeys message: " << msk.DebugString();
+					if ( msk.operation() == obdi::ModifyServerKeys_Operation_DELETE ) {
+						client_crypto->replace_server_key(vector<uint8_t>());
+					} else {
+						client_crypto->replace_server_key(vector<uint8_t>(msk.public_key().begin(), msk.public_key().end()));
+					}
+					
+					obdi::Ack response;
+					response.set_message_id(msk.message_id());
+					using namespace google::protobuf;
+					response.set_allocated_time_generated(new Timestamp(util::TimeUtil::GetCurrentTime()));
+					
+					const auto &send_data = prepare_message(response, MessageType::ACK);
+					
+					auto sent_size = sendto(main_socket, send_data.data(), send_data.size(), 0, (sockaddr*)&src_addr, src_addrlen);
+					if ( sent_size != send_data.size() ) {
+						cerr << "[WARNING] Sent ModifyServerKeys message size mismatch (actual: " << sent_size << ", expected: " << send_data.size() << ")" << endl;
+					}
 				} else if ( client_crypto->decrypt_payload(*server_header, buffer + sizeof(*server_header)) != ClientCrypto::Result::OK ) {
 					cerr << "[WARNING] Unable to decrypt server payload.\n";
 					continue;
