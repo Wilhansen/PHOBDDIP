@@ -127,6 +127,14 @@ ClientCrypto.prototype.decrypt_payload = function(header, payload) {
 	return sodium.crypto_aead_chacha20poly1305_ietf_decrypt_detached(null, payload, header_mac, header.slice(0, 8), header_nonce, this.client_rx);
 };
 
+ClientCrypto.prototype.verify_signed_server_payload = function(header, message, signature) {
+	return sodium.crypto_sign_verify_detached(signature, message.slice(0, ServerMessageHeader.size + NONCE_SIZE + MAC_SIZE + header.payload_size), this.server_sign_pk); 
+};
+
+ClientCrypto.prototype.verify_signed_master_payload = function(header, message, signature) {
+	return sodium.crypto_sign_verify_detached(signature, message.slice(0, ServerMessageHeader.size + NONCE_SIZE + MAC_SIZE + header.payload_size), this.master_sign_pk);
+}
+
 // Returns true if all the needed files are loaded, required before starting main()
 function initialized() {
 	return sign_pk != undefined && sign_sk != undefined && server_sign_pk != undefined && master_sign_pk != undefined && obdi != undefined;
@@ -345,11 +353,46 @@ function main() {
 			return;
 		}
 
-		var payload_bytes = message.slice(36);
+		var payload_bytes = message.slice(ServerMessageHeader.size + NONCE_SIZE + MAC_SIZE);
 
 		if(header.payload_size > payload_bytes.length) {
 			console.log("[WARNING] Payload size field greater than packet size.");
 			return;
+		}
+
+		if(header.message_type == MessageType[CryptoError.name]) {
+			if(ServerMessageHeader.size + NONCE_SIZE + MAC_SIZE + header.payload_size + sodium.crypto_sign_BYTES > message.length) {
+				console.log("[WARNING] Unencrypted server payload has no signature.");
+				return;
+			}
+			if(!crypto.verify_signed_server_payload(header, message, message.slice(ServerMessageHeader.size + NONCE_SIZE + MAC_SIZE + header.payload_size))) {
+				console.log("[WARNING] Signed server payload verification failed.");
+				return;
+			}
+
+			var cryptoError = CryptoError.decode(payload_bytes.slice(0, header.payload_size));
+			console.log("Got CryptoError: ", cryptoError);
+		} else if(header.message_type == MessageType[ModifyServerKeys.name]) {
+			if(ServerMessageHeader.size + NONCE_SIZe + MAC_SIZE + header.payload_size + sodium.crypto_sign_BYTES > message.length) {
+				console.log("[WARNING] Unencrypted server payload has no signature.");
+				return;
+			}
+			if(!crypto.verify_signed_master_payload(header, message, message.slice(ServerMessageHeader.size + NONCE_SIZE + MAC_SIZe + header.payload_size))) {
+				console.log("[WARNING] Signed server payload verification failed.");
+				return;
+			}
+
+			var modifyServerKeys = ModifyServerKeys.decode(payload_bytes.slice(0, header.payload_size));
+			console.log("Got Server ModifyServerKeys message: ", modifyServerKeys);
+			if(modifyServerKeys.operation == Operation.DELETE) {
+				crypto.replace_server_key([]);
+			} else {
+				crypto.replace_server_key(modifyServerkeys.public_key);
+			}
+
+			var response = Ack.create({messageId: modifyServerKeys.messageId, timeGenerated: getCurrentTime() });
+			var send_buffer = prepare_message(response, Ack);
+			socket.send(send_buffer, 0, send_buffer.length, port, address, send_callback);
 		}
 
 		var decrypted = crypto.decrypt_payload(header_bytes, payload_bytes);
