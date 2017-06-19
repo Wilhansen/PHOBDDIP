@@ -9,9 +9,10 @@ const optionDefinitions = [
 	{ name: 'server', alias: 's', type: String, defaultValue: '127.0.0.1' },
 	{ name: 'port', alias: 'p', type: Number, defaultValue: 1234 },
 	{ name: 'id', type: String, defaultValue: '1' },
-	{ name: 'pub', type: String },
-	{ name: 'priv', type: String },
-	{ name: 'sk', type: String },
+	{ name: 'pub', type: String, defaultValue: 'client.pub' },
+	{ name: 'priv', type: String, defaultValue: 'client.priv' },
+	{ name: 'sk', type: String, defaultValue: 'server.pub' },
+	{ name: 'mk', type: String, defaultValue: 'master.pub' },
 	{ name: 'help', alias: 'h', type: Boolean }
 ];
 const options = commandLineArgs(optionDefinitions);
@@ -26,10 +27,11 @@ var socket = dgram.createSocket('udp4');
 var obdi;
 var crypto;
 var client_id = Long.fromString(options['id'], true);
-var sign_pk, sign_sk, server_sign_pk;
+var sign_pk, sign_sk, server_sign_pk, master_sign_pk
 var client_pk_path = options['pub'];
 var client_sk_path = options['priv'];
 var server_pk_path = options['sk'];
+var master_pk_path = options['mk'];
 var address = options['server'];
 var port = options['port'];
 var MessageType;
@@ -88,10 +90,11 @@ var NonceGenerator = function() {
 };
 
 // This class holds references to the important keys needed for encryption/decryption (public, private, transmission, and reception)
-var ClientCrypto = function(sign_pk, sign_sk, server_sign_pk) {
+var ClientCrypto = function(sign_pk, sign_sk, server_sign_pk, master_sign_pk) {
 	this.sign_pk = sign_pk;
 	this.sign_sk = sign_sk;
 	this.server_sign_pk = server_sign_pk;
+	this.master_sign_pk = master_sign_pk;
 	this.ng = new NonceGenerator();
 	this.derive_keys();
 };
@@ -126,7 +129,7 @@ ClientCrypto.prototype.decrypt_payload = function(header, payload) {
 
 // Returns true if all the needed files are loaded, required before starting main()
 function initialized() {
-	return sign_pk != undefined && sign_sk != undefined && server_sign_pk != undefined && obdi != undefined;
+	return sign_pk != undefined && sign_sk != undefined && server_sign_pk != undefined && master_sign_pk != undefined && obdi != undefined;
 }
 
 fs.readFile(client_pk_path, function(err, data) {
@@ -144,6 +147,12 @@ fs.readFile(client_sk_path, function(err, data) {
 fs.readFile(server_pk_path, function(err, data) {
 	if(err) throw err;
 	server_sign_pk = new Uint8Array(data);
+	if(initialized()) main();
+});
+
+fs.readFile(master_pk_path, function(err, data) {
+	if(err) throw err;
+	master_sign_pk = new Uint8Array(data);
 	if(initialized()) main();
 });
 
@@ -220,7 +229,7 @@ function send_callback(err, bytes) {
 }
 
 function main() {
-	crypto = new ClientCrypto(sign_pk, sign_sk, server_sign_pk);
+	crypto = new ClientCrypto(sign_pk, sign_sk, server_sign_pk, master_sign_pk);
 
 	var ping = Ping.create({messageId: 1|0, timeGenerated: getCurrentTime()});
 	var send_buffer = prepare_message(ping, Ping);
