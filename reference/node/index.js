@@ -189,6 +189,7 @@ protobuf.load('../../obdi.proto', function(err, root) {
 	Ping = obdi.lookupType('obdi.Ping');
 	Ack = obdi.lookupType('obdi.Ack');
 	CryptoError = obdi.lookupType('obdi.CryptoError');
+	ModifyServerKeys = obdi.lookupType('obdi.ModifyServerKeys');
 	LocationUpdate = obdi.lookupType('obdi.LocationUpdate');
 	TripInfoUpdateStatus = obdi.lookupType('obdi.TripInfoUpdateStatus');
 	ChangeSettings = obdi.lookupType('obdi.ChangeSettings');
@@ -210,6 +211,7 @@ protobuf.load('../../obdi.proto', function(err, root) {
 		Ack: 3,
 
 		CryptoError: 10,
+		ModifyServerKeys: 11,
 		
 		LocationUpdate: 20,
 		TripInfoUpdateStatus: 21,
@@ -393,15 +395,15 @@ function main() {
 			var response = Ack.create({messageId: modifyServerKeys.messageId, timeGenerated: getCurrentTime() });
 			var send_buffer = prepare_message(response, Ack);
 			socket.send(send_buffer, 0, send_buffer.length, port, address, send_callback);
+		} else {
+			payload_bytes = crypto.decrypt_payload(header_bytes, payload_bytes);
 		}
 
-		var decrypted = crypto.decrypt_payload(header_bytes, payload_bytes);
-		
 		var address = remote.address;
 		var port = parseInt(remote.port);
 
 		if(header.message_type == MessageType[Notice.name]) {
-			var notice = Notice.decode(decrypted);
+			var notice = Notice.decode(payload_bytes);
 			console.log("Received from server: " , notice);
 
 			var ack = Ack.create({messageId: notice.messageId, timeGenerated: getCurrentTime()});
@@ -409,7 +411,7 @@ function main() {
 
 			socket.send(send_buffer, 0, send_buffer.length, port, address, send_callback);
 		} else if(header.message_type == MessageType[Ping.name]) {
-			var ping = Ping.decode(decrypted);
+			var ping = Ping.decode(payload_bytes);
 			console.log("Received from server: ", ping);
 
 			var ack = Ack.create({messageId: ping.messageId, timeGenerated: getCurrentTime()});
@@ -417,13 +419,13 @@ function main() {
 
 			socket.send(send_buffer, 0, send_buffer.length,	port, address, send_callback);
 		} else if(header.message_type == MessageType[Ack.name]) {
-			var ack = Ack.decode(decrypted);
+			var ack = Ack.decode(payload_bytes);
 			console.log("Received from server: ", ack);
 		} else if(header.message_type == MessageType[CryptoError.name]) {
-			var crypto_error = CryptoError.decode(decrypted);
+			var crypto_error = CryptoError.decode(payload_bytes);
 			console.log("Received from server: ", crypto_error);
 		} else if(header.message_type == MessageType[ChangeSettings.name]) {
-			var change_settings = ChangeSettings.decode(decrypted);
+			var change_settings = ChangeSettings.decode(payload_bytes);
 			console.log("Received from server: ", change_settings);
 
 			var ack = Ack.create({messageId: ping.messageId, timeGenerated: getCurrentTime()});
@@ -431,13 +433,13 @@ function main() {
 
 			socket.send(send_buffer, 0, send_buffer.length,	port, address, send_callback);
 		} else if(header.message_type == MessageType[Error.name]) {
-			var error = Error.decode(decrypted);
+			var error = Error.decode(payload_bytes);
 			console.log("Received from server: ", error);
 		} else if(header.message_type == MessageType[ETAUpdate.name]) {
-			var etaUpdate = ETAUpdate.decode(decrypted);
+			var etaUpdate = ETAUpdate.decode(payload_bytes);
 			console.log("Received from server: ", etaUpdate);
 		} else if(header.message_type == MessageType[TripInfoUpdate.name]) {
-			var tripInfoUpdate = TripInfoUpdate.decode(decrypted);
+			var tripInfoUpdate = TripInfoUpdate.decode(payload_bytes);
 			console.log("Received from server: ", tripInfoUpdate);
 
 			var response = TripInfoUpdateStatus.create({updateId: tripInfoUpdate.updateId, status: 0});
