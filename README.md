@@ -8,13 +8,13 @@
 
 ## Building (NodeJS)
 1. Make sure you have npm and nodejs installed. Run `npm install` in the node directory
-2. No need to compile the .proto file, the libsodium package does this for you
+2. No need to compile the .proto file, the protobuf package does this for you
 
 ## Running
 1. Generate the keys, save to their default location
 `./keygen keys/server`  
 `./keygen client.pub client.priv`
-2. Copy the client.pub key to the keys directory, rename it 0000000000000001.pub (default client id = 1)
+2. Copy the client.pub key to the keys directory, rename it 0000000000000001.pub (that's 15 `0` followed by a `1`; the default client id is `1`)
 3. Run server and client  
 `./server`  
 `./client --sk keys/server.pub`  
